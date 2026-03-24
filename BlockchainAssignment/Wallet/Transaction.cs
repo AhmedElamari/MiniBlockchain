@@ -1,6 +1,5 @@
 using System;
 using System.Text;
-using System.Threading.Tasks;
 using System.Security.Cryptography;
 
 
@@ -22,14 +21,15 @@ namespace BlockchainAssignment.Wallet
 
         public Transaction(string privateKey, string senderAddress, string recipientAddress, decimal amount, decimal fee)
         {
-            this.sender = SenderAddress;
-            this.recipient = RecipientAddress;
-            this.amount = Amount;
-            this.fee = Fee;
+            this.sender = senderAddress;
+            this.recipient = recipientAddress;
+            this.amount = amount;
+            this.fee = fee;
             this.timestamp = DateTime.Now;
             this.hash = createHashTransaction();
             this.signature = Wallet.createSignature(sender, privateKey, hash);
         }
+
         public string createHashTransaction()
         {
             SHA256 hasher = SHA256Managed.Create();

@@ -4,7 +4,6 @@ using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.Linq;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -45,7 +44,7 @@ namespace BlockchainAssignment
         private void button2_Click(object sender, EventArgs e)
         {
             Block lastBlock = blockchain.GetLastBlock();
-            richTextBox1.Text = blockchain.returnBlockchain(lastBlock);
+            richTextBox1.Text = blockchain.ReturnBlockchain(lastBlock);
         }
 
         private void textBox4_TextChanged(object sender, EventArgs e)
@@ -209,7 +208,7 @@ namespace BlockchainAssignment
 
         private void button_createBlock(object sender, EventArgs e)
         {
-            List<Transaction> chosenTransactions = blockchain.getTransactionsForNextBlock();
+            List<Transaction> chosenTransactions = blockchain.GetTransactionsForNextBlock();
             string minerAddress = textBox2.Text == null ? string.Empty : textBox2.Text.Trim();
             Block newBlock = new Block(blockchain.GetLastBlock(), chosenTransactions, minerAddress);
             if (!blockchain.AddBlock(newBlock, out string failureMessage))
@@ -218,7 +217,7 @@ namespace BlockchainAssignment
                 return;
             }
 
-            richTextBox1.Text = blockchain.returnBlockchain(newBlock.Index) + "\n";
+            richTextBox1.Text = blockchain.ReturnBlockchain(newBlock) + "\n";
         }
 
         private void button_readAll(object sender, EventArgs e)
@@ -226,23 +225,23 @@ namespace BlockchainAssignment
             richTextBox1.Clear();
             for (int i = 0; i < blockchain.GetBlocks().Count; i++)
             {
-                richTextBox1.Text += "  " + blockchain.returnBlockchain(blockchain.GetBlocks()[i].Index) + "\n" + "\n";
+                richTextBox1.Text += "  " + blockchain.ReturnBlockchain(blockchain.GetBlocks()[i]) + "\n" + "\n";
             }
         }
 
         private void readAllTransactions(object sender, EventArgs e)
         {
-                        richTextBox1.Clear();
-            List<Transaction> transactions = blockchain.GetPendingTransactions();
-            foreach (Transaction t in transactions)
+            richTextBox1.Clear();
+            List<Transaction> transactions = blockchain.GetPendingTransactionsPool();
+            foreach (Transaction transaction in transactions)
             {
-                richTextBox1.Text += t.ToString() + "\n" + "\n";
-            }   
+                richTextBox1.Text += transaction.ToString() + "\n" + "\n";
+            }
         }
 
         private void validateBlockchain_Click(object sender, EventArgs e)
         {
-            bool ok = blockchain.validateBlockchain(out string message);
+            bool ok = blockchain.IsValidBlockchain(out string message);
             MessageBox.Show(message, ok ? "Blockchain valid" : "Blockchain invalid");
             richTextBox1.Text = message;
         }

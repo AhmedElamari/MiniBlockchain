@@ -3,10 +3,9 @@ using BlockchainAssignment.Wallet;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace BlockchainAssignment
 {
@@ -21,10 +20,6 @@ namespace BlockchainAssignment
         public string minerAddress;
         public decimal reward = 10;
         public string merikleRoot;
-       
-
-
-
 
         public Block()
         {
@@ -32,14 +27,13 @@ namespace BlockchainAssignment
             this.Index = 0;
             this.previousHash = string.Empty;
             this.nonce = 0;
-            this.merikleRoot = string.Empty; 
+            this.merikleRoot = string.Empty;
             this.minerAddress = string.Empty;
             this.reward = 0;
             this.merikleRoot = MerkleRoot(transactionList);
             this.Hash = Mine();
-
-
         }
+
         public Block(Block lastBlock, List<Transaction> transactions, string minerRewardAddress)
         {
             if (lastBlock == null) throw new ArgumentNullException(nameof(lastBlock));
@@ -124,7 +118,7 @@ namespace BlockchainAssignment
 
             MessageBox.Show("All blocks are valid.");
         }
-        public decimal checkBalance(List<Block> blocks, string walletAddress)
+        public decimal CheckBalance(List<Block> blocks, string walletAddress)
         {
             decimal balance = 0;
             foreach (Block currentBlock in blocks)

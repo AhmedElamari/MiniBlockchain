@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,7 +9,6 @@ using BlockchainAssignment.HashCode;
 
 namespace BlockchainAssignment.Wallet
 {
-    // Below is the code for generating key pairs and signatures, and validating signatures and private keys
     class Wallet
     {
         // Public ID - viewable to all (Derived from the users private key)
@@ -46,16 +45,11 @@ namespace BlockchainAssignment.Wallet
             if (privateKey.Length != 44 || publicID.Length != 88)
                 return false;
 
-            String sig = CreateSignature(publicID, privateKey, testHash);
+            String sig = createSignature(publicID, privateKey, testHash);
 
             return ValidateSignature(publicID, testHash, sig);
         }
 
-        // Validates if a signiture is legitimate.
-        // publicID is the Id of the wallet making the transaction.
-        // datahash is the hash of transaction
-        // datasig is the hash created by the private key and datahash
-        // The datasig can be validated with the above parameters.
         public static bool ValidateSignature(String publicID, String datahash, String datasig)
         {
             if (publicID.Equals("Mine Rewards"))
@@ -72,7 +66,7 @@ namespace BlockchainAssignment.Wallet
             ECDsaCng dsa = new ECDsaCng(key);
             return dsa.VerifyData(HashTools.StringToByteArray(datahash), Convert.FromBase64String(datasig));
         }
-        public static String CreateSignature(String publicID, String privateKey, String datahash) //need to have checks that publicID and privatekey are correct before using this method
+        public static String createSignature(String publicID, String privateKey, String datahash)
         {
             CngKey key = createKey(publicID, privateKey);
 
