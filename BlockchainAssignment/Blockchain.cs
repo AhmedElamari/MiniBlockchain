@@ -17,22 +17,23 @@ namespace BlockchainAssignment
             blocks.Add(genesisBlock);
         }
 
-        public string ReturnBlockchain(Block block)
+        public string returnBlockchain(int blockIndex)
         {
-            return block.ToString();
+            Block b = blocks.FirstOrDefault(x => x.Index == blockIndex);
+            return b != null ? b.ToString() : "Block not found.";
         }
 
-        public Block GetLastBlock()
+        public Block getLastBlock()
         {
             return blocks[blocks.Count - 1];
         }
 
-        public List<Block> GetBlocks()
+        public List<Block> getBlocks()
         {
             return blocks;
         }
 
-        public bool AddBlock(Block block, out string failureMessage)
+        public bool addBlock(Block block, out string failureMessage)
         {
             failureMessage = null;
             if (block == null)
@@ -47,7 +48,7 @@ namespace BlockchainAssignment
                 return false;
             }
 
-            Block previous = GetLastBlock();
+            Block previous = getLastBlock();
             if (!validateNonGenesisBlock(block, previous, out failureMessage))
                 return false;
 
@@ -61,159 +62,84 @@ namespace BlockchainAssignment
             return true;
         }
 
-        public List<Transaction> GetPendingTransactionsPool()
+        public bool validateBlockchain(out string message)
+        {
+            if (blocks.Count == 0)
+            {
+                message = "Chain is empty.";
+                return false;
+            }
+
+            for (int i = 1; i < blocks.Count; i++)
+            {
+                Block current = blocks[i];
+                Block prev = blocks[i - 1];
+                if (!validateNonGenesisBlock(current, prev, out string fail))
+                {
+                    message = fail;
+                    return false;
+                }
+            }
+
+            message = "All blocks are valid.";
+            return true;
+        }
+
+        private static bool validateNonGenesisBlock(Block block, Block previous, out string failureMessage)
+        {
+            failureMessage = null;
+            if (block.previousHash != previous.Hash)
+            {
+                failureMessage = "Block " + block.Index + " has invalid previous hash.";
+                return false;
+            }
+
+            if (block.Index != previous.Index + 1)
+            {
+                failureMessage = "Block " + block.Index + " has invalid index.";
+                return false;
+            }
+
+            string target = new string('0', (int)block.difficulty);
+            if (string.IsNullOrEmpty(block.Hash) || !block.Hash.StartsWith(target))
+            {
+                failureMessage = "Block " + block.Index + " does not satisfy proof of work.";
+                return false;
+            }
+
+            if (block.Hash != block.createHash())
+            {
+                failureMessage = "Block " + block.Index + " hash does not match computed hash.";
+                return false;
+            }
+
+            return true;
+        }
+
+        public List<Transaction> getPendingTransactionsPool()
         {
             return transactionPool.ToList();
         }
 
-        public List<Transaction> GetTransactionsForNextBlock()
+        public void addPendingTransaction(Transaction transaction)
         {
-            return GetTransactionsForNextBlock(transactionsPerBlock);
+            transactionPool.Add(transaction);
         }
 
-        public List<Transaction> GetTransactionsForNextBlock(int transactionsPerBlock)
+        public List<Transaction> getTransactionsForNextBlock(int transactionsPerBlock)
         {
             int n = Math.Min(transactionsPerBlock, transactionPool.Count);
             return transactionPool.Take(n).ToList();
         }
 
-        public bool IsValidBlockchain(out string message)
+        public List<Transaction> getTransactionsForNextBlock()
         {
-            List<Block> chain = GetBlocks();
-            if (chain.Count == 0)
-            {
-                message = "Blockchain has no blocks.";
-                return false;
-            }
-
-            if (!isValidGenesisBlock(chain[0], out message))
-                return false;
-
-            for (int i = 1; i < chain.Count; i++)
-            {
-                if (!validateNonGenesisBlock(chain[i], chain[i - 1], out message))
-                    return false;
-            }
-
-            message = "Blockchain is valid.";
-            return true;
+            return getTransactionsForNextBlock(transactionsPerBlock);
         }
 
-        private static bool isValidGenesisBlock(Block block, out string message)
+        public int getTransactionsPerBlock()
         {
-            message = null;
-            if (block.Index != 0)
-            {
-                message = "Genesis block: wrong index.";
-                return false;
-            }
-
-            if (!string.IsNullOrEmpty(block.previousHash))
-            {
-                message = "Genesis block: previous hash should be empty.";
-                return false;
-            }
-
-            if (!isPOWValid(block, out message))
-                return false;
-
-            string expectedMerkle = Block.MerkleRoot(block.transactionList);
-            if ((block.merikleRoot ?? "") != (expectedMerkle ?? ""))
-            {
-                message = "Genesis block: bad Merkle root.";
-                return false;
-            }
-
-            foreach (Transaction tx in block.transactionList)
-            {
-                if (!tx.isValid())
-                {
-                    message = "Genesis block: invalid transaction.";
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        private static bool validateNonGenesisBlock(Block block, Block previous, out string message)
-        {
-            message = null;
-
-            if (block.Index != previous.Index + 1)
-            {
-                message = "Non-Genesis block " + block.Index + ": wrong index.";
-                return false;
-            }
-
-            if (block.previousHash != previous.Hash)
-            {
-                message = "Non-Genesis block " + block.Index + ": bad previous hash.";
-                return false;
-            }
-
-            if (!isPOWValid(block, out message))
-                return false;
-
-            string expectedMerkle = Block.MerkleRoot(block.transactionList);
-            if ((block.merikleRoot ?? "") != (expectedMerkle ?? ""))
-            {
-                message = "Non-Genesis block " + block.Index + ": bad Merkle root.";
-                return false;
-            }
-
-            foreach (Transaction tx in block.transactionList)
-            {
-                if (!tx.isValid())
-                {
-                    message = "Non-Genesis block " + block.Index + ": invalid transaction.";
-                    return false;
-                }
-            }
-
-            List<Transaction> rewardTxs = block.transactionList.Where(t => t.sender == Transaction.miningRewardSenderID).ToList();
-            if (rewardTxs.Count != 1)
-            {
-                message = "Non-Genesis block " + block.Index + ": need exactly one mining reward transaction.";
-                return false;
-            }
-
-            Transaction rewardTx = rewardTxs[0];
-            decimal nonRewardFees = block.transactionList.Where(t => t.sender != Transaction.miningRewardSenderID).Sum(t => t.fee);
-            decimal expectedRewardAmount = block.reward + nonRewardFees;
-            if (rewardTx.amount != expectedRewardAmount)
-            {
-                message = "Non-Genesis block " + block.Index + ": wrong reward amount.";
-                return false;
-            }
-
-            if (rewardTx.recipient != block.minerAddress)
-            {
-                message = "Non-Genesis block " + block.Index + ": reward payee must be miner.";
-                return false;
-            }
-
-            return true;
-        }
-
-        private static bool isPOWValid(Block block, out string message)
-        {
-            message = null;
-            string recomputed = block.createHash();
-            if (block.Hash != recomputed)
-            {
-                message = "Block " + block.Index + ": hash mismatch.";
-                return false;
-            }
-
-            string target = new string('0', (int)block.difficulty);
-            if (block.Hash == null || !block.Hash.StartsWith(target))
-            {
-                message = "Block " + block.Index + ": proof of work failed.";
-                return false;
-            }
-
-            return true;
+            return transactionsPerBlock;
         }
     }
 }

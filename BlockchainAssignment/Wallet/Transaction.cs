@@ -2,7 +2,6 @@ using System;
 using System.Text;
 using System.Security.Cryptography;
 
-
 namespace BlockchainAssignment.Wallet
 {
     public class Transaction
@@ -20,12 +19,17 @@ namespace BlockchainAssignment.Wallet
         public string Signature { get { return signature; } }
 
         public Transaction(string privateKey, string senderAddress, string recipientAddress, decimal amount, decimal fee)
+            : this(privateKey, senderAddress, recipientAddress, amount, fee, DateTime.Now)
+        {
+        }
+
+        public Transaction(string privateKey, string senderAddress, string recipientAddress, decimal amount, decimal fee, DateTime timestamp)
         {
             this.sender = senderAddress;
             this.recipient = recipientAddress;
             this.amount = amount;
             this.fee = fee;
-            this.timestamp = DateTime.Now;
+            this.timestamp = timestamp;
             this.hash = createHashTransaction();
             this.signature = Wallet.createSignature(sender, privateKey, hash);
         }

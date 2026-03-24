@@ -2,8 +2,15 @@ namespace BlockchainAssignment
 {
     partial class BlockchainApp
     {
+        /// <summary>
+        /// Required designer variable.
+        /// </summary>
         private System.ComponentModel.IContainer components = null;
 
+        /// <summary>
+        /// Clean up any resources being used.
+        /// </summary>
+        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null))
@@ -13,6 +20,12 @@ namespace BlockchainAssignment
             base.Dispose(disposing);
         }
 
+        #region Windows Form Designer generated code
+
+        /// <summary>
+        /// Required method for Designer support - do not modify
+        /// the contents of this method with the code editor.
+        /// </summary>
         private void InitializeComponent()
         {
             System.Windows.Forms.Label PublicKey;
@@ -35,7 +48,8 @@ namespace BlockchainAssignment
             this.button4 = new System.Windows.Forms.Button();
             this.button5 = new System.Windows.Forms.Button();
             this.button6 = new System.Windows.Forms.Button();
-            this.validateBlockchainButton = new System.Windows.Forms.Button();
+            this.buttonValidateBlockchain = new System.Windows.Forms.Button();
+            this.buttonBenchmarkMining = new System.Windows.Forms.Button();
             PublicKey = new System.Windows.Forms.Label();
             label1 = new System.Windows.Forms.Label();
             label2 = new System.Windows.Forms.Label();
@@ -212,7 +226,7 @@ namespace BlockchainAssignment
             // 
             this.button5.Location = new System.Drawing.Point(1169, 792);
             this.button5.Name = "button5";
-            this.button5.Size = new System.Drawing.Size(165, 35);
+            this.button5.Size = new System.Drawing.Size(165, 30);
             this.button5.TabIndex = 19;
             this.button5.Text = "Read All Transactions";
             this.button5.UseVisualStyleBackColor = true;
@@ -220,23 +234,33 @@ namespace BlockchainAssignment
             // 
             // button6
             // 
-            this.button6.Location = new System.Drawing.Point(984, 732);
+            this.button6.Location = new System.Drawing.Point(996, 732);
             this.button6.Name = "button6";
-            this.button6.Size = new System.Drawing.Size(180, 44);
+            this.button6.Size = new System.Drawing.Size(168, 44);
             this.button6.TabIndex = 20;
             this.button6.Text = "Check Balance";
             this.button6.UseVisualStyleBackColor = true;
             this.button6.Click += new System.EventHandler(this.checkBalanceButton);
             // 
-            // validateBlockchainButton
+            // buttonValidateBlockchain
             // 
-            this.validateBlockchainButton.Location = new System.Drawing.Point(268, 691);
-            this.validateBlockchainButton.Name = "validateBlockchainButton";
-            this.validateBlockchainButton.Size = new System.Drawing.Size(180, 65);
-            this.validateBlockchainButton.TabIndex = 21;
-            this.validateBlockchainButton.Text = "Validate Blockchain";
-            this.validateBlockchainButton.UseVisualStyleBackColor = true;
-            this.validateBlockchainButton.Click += new System.EventHandler(this.validateBlockchain_Click);
+            this.buttonValidateBlockchain.Location = new System.Drawing.Point(268, 691);
+            this.buttonValidateBlockchain.Name = "buttonValidateBlockchain";
+            this.buttonValidateBlockchain.Size = new System.Drawing.Size(180, 65);
+            this.buttonValidateBlockchain.TabIndex = 21;
+            this.buttonValidateBlockchain.Text = "Validate Blockchain";
+            this.buttonValidateBlockchain.UseVisualStyleBackColor = true;
+            this.buttonValidateBlockchain.Click += new System.EventHandler(this.validateBlockchain_Click);
+            // 
+            // buttonBenchmarkMining
+            // 
+            this.buttonBenchmarkMining.Location = new System.Drawing.Point(454, 691);
+            this.buttonBenchmarkMining.Name = "buttonBenchmarkMining";
+            this.buttonBenchmarkMining.Size = new System.Drawing.Size(180, 65);
+            this.buttonBenchmarkMining.TabIndex = 22;
+            this.buttonBenchmarkMining.Text = "Benchmark Mining";
+            this.buttonBenchmarkMining.UseVisualStyleBackColor = true;
+            this.buttonBenchmarkMining.Click += new System.EventHandler(this.button_benchmarkMining_Click);
             // 
             // BlockchainApp
             // 
@@ -246,8 +270,9 @@ namespace BlockchainAssignment
             this.ClientSize = new System.Drawing.Size(1362, 925);
             this.Controls.Add(this.button6);
             this.Controls.Add(this.button5);
-            this.Controls.Add(this.validateBlockchainButton);
             this.Controls.Add(this.button4);
+            this.Controls.Add(this.buttonBenchmarkMining);
+            this.Controls.Add(this.buttonValidateBlockchain);
             this.Controls.Add(this.button2);
             this.Controls.Add(this.textBox6);
             this.Controls.Add(this.label3);
@@ -275,6 +300,8 @@ namespace BlockchainAssignment
 
         }
 
+        #endregion
+
         private System.Windows.Forms.RichTextBox richTextBox1;
         private System.Windows.Forms.Button button1;
         private System.Windows.Forms.TextBox textBox1;
@@ -292,7 +319,8 @@ namespace BlockchainAssignment
         private System.Windows.Forms.Button button4;
         private System.Windows.Forms.Button button5;
         private System.Windows.Forms.Button button6;
-        private System.Windows.Forms.Button validateBlockchainButton;
+        private System.Windows.Forms.Button buttonValidateBlockchain;
+        private System.Windows.Forms.Button buttonBenchmarkMining;
     }
 }
 

@@ -5,12 +5,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace BlockchainAssignment
 {
     public class Block
     {
+        public delegate void MiningMessageCallback(string message);
+
         public DateTime timeStamp { get; set; }
         public int Index { get; set; }
         public string previousHash, Hash;
@@ -35,28 +38,49 @@ namespace BlockchainAssignment
         }
 
         public Block(Block lastBlock, List<Transaction> transactions, string minerRewardAddress)
+            : this(lastBlock, transactions, minerRewardAddress, DateTime.Now, 4f, true)
+        {
+        }
+
+        public Block(Block lastBlock, List<Transaction> transactions, string minerRewardAddress, DateTime timeStamp, float difficulty, bool autoMine)
         {
             if (lastBlock == null) throw new ArgumentNullException(nameof(lastBlock));
 
-            this.timeStamp = DateTime.Now;
+            this.timeStamp = timeStamp;
             this.Index = lastBlock.Index + 1;
             this.previousHash = lastBlock.Hash;
-            this.transactionList = transactions ?? new List<Transaction>();
+            this.transactionList = new List<Transaction>(transactions ?? new List<Transaction>());
             this.nonce = 0;
-            this.minerAddress = minerRewardAddress;
-            rewardMiner();
+            this.minerAddress = minerRewardAddress ?? string.Empty;
+            this.difficulty = difficulty;
+            rewardMiner(this.timeStamp);
             this.merikleRoot = MerkleRoot(this.transactionList);
-            this.Hash = Mine();
-
+            if (autoMine)
+                this.Hash = Mine();
+            else
+                this.Hash = string.Empty;
         }
 
-
+        public static Block CreateUnminedCandidate(Block lastBlock, List<Transaction> transactions, string minerRewardAddress, DateTime timeStamp, float difficulty)
+        {
+            return new Block(lastBlock, transactions, minerRewardAddress, timeStamp, difficulty, false);
+        }
 
         public string createHash()
         {
-            SHA256 hasher = SHA256Managed.Create();
-            string input = Index.ToString() + timeStamp.ToString() + previousHash + nonce + difficulty + reward + merikleRoot;
-            Byte[] hashByte = hasher.ComputeHash(Encoding.UTF8.GetBytes(input));
+            return CreateHashForNonce(nonce);
+        }
+
+        public string CreateHashForNonce(int nonceValue)
+        {
+            using (SHA256 hasher = SHA256.Create())
+                return HashForNonce(hasher, nonceValue);
+        }
+
+        private string HashForNonce(SHA256 hasher, int nonceValue)
+        {
+            string input = Index.ToString() + timeStamp.ToString() + previousHash + nonceValue + difficulty + reward + merikleRoot;
+            byte[] hashByte = hasher.ComputeHash(Encoding.UTF8.GetBytes(input));
             String hash = string.Empty;
             foreach (byte x in hashByte)
                 hash += String.Format("{0:x2}", x);
@@ -78,22 +102,69 @@ namespace BlockchainAssignment
 
         public string Mine()
         {
-            string target = new string('0', (int)difficulty);
-            Hash = createHash();
-            while (!Hash.StartsWith(target))
-            {
-                nonce++;
-
-                Hash = createHash();
-            }
-            return Hash;
+            return Mine(Environment.ProcessorCount, null);
         }
 
-        public string rewardMiner()
+        public string Mine(int workerCount, MiningMessageCallback callback = null)
         {
-           decimal fees = transactionList.Where(t => t.sender != Transaction.miningRewardSenderID).Sum(t => t.fee);
-            Transaction rewardTransaction = new Transaction("", Transaction.miningRewardSenderID, minerAddress, reward + fees, 0);
-            transactionList.Add(rewardTransaction); 
+            if (workerCount < 1)
+                workerCount = 1;
+
+            callback?.Invoke("Mining (" + workerCount + " thread(s))…");
+
+            string targetPrefix = new string('0', (int)difficulty);
+            object winnerLock = new object();
+            string winningHash = null;
+            int winningNonce = 0;
+            int stopMining = 0;
+
+            Thread[] threads = new Thread[workerCount];
+            for (int i = 0; i < workerCount; i++)
+            {
+                int workerIndex = i;
+                threads[i] = new Thread(() =>
+                {
+                    using (SHA256 hasher = SHA256.Create())
+                    {
+                        int n = workerIndex;
+                        while (Volatile.Read(ref stopMining) == 0)
+                        {
+                            string hash = HashForNonce(hasher, n);
+                            if (hash.StartsWith(targetPrefix))
+                            {
+                                lock (winnerLock)
+                                {
+                                    if (winningHash == null)
+                                    {
+                                        winningNonce = n;
+                                        winningHash = hash;
+                                        Volatile.Write(ref stopMining, 1);
+                                    }
+                                }
+                                break;
+                            }
+                            n += workerCount;
+                        }
+                    }
+                });
+                threads[i].Start();
+            }
+
+            foreach (Thread t in threads)
+                t.Join();
+
+            this.nonce = winningNonce;
+            this.Hash = winningHash ?? string.Empty;
+
+            callback?.Invoke("Done. Nonce " + winningNonce + ".");
+            return this.Hash;
+        }
+
+        public string rewardMiner(DateTime blockTimestamp)
+        {
+            decimal fees = transactionList.Where(t => t.sender != Transaction.miningRewardSenderID).Sum(t => t.fee);
+            Transaction rewardTransaction = new Transaction("", Transaction.miningRewardSenderID, minerAddress, reward + fees, 0, blockTimestamp);
+            transactionList.Add(rewardTransaction);
             return rewardTransaction.ToString();
         }
 
@@ -118,7 +189,8 @@ namespace BlockchainAssignment
 
             MessageBox.Show("All blocks are valid.");
         }
-        public decimal CheckBalance(List<Block> blocks, string walletAddress)
+
+        public decimal checkBalance(List<Block> blocks, string walletAddress)
         {
             decimal balance = 0;
             foreach (Block currentBlock in blocks)
