@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
@@ -8,9 +6,9 @@ using System.Security.Cryptography;
 
 namespace BlockchainAssignment.Wallet
 {
-    // Below is the code for creating transactions, and validating transactions
     public class Transaction
     {
+        public const string miningRewardSenderID = "Mine Rewards";
         private string hash, signature;
         public string sender;
         public string recipient;
@@ -22,11 +20,7 @@ namespace BlockchainAssignment.Wallet
         public string Hash { get { return hash; } }
         public string Signature { get { return signature; } }
 
-
-
-
-
-        public Transaction(string privateKey, string SenderAddress, string RecipientAddress, decimal Amount, decimal Fee)
+        public Transaction(string privateKey, string senderAddress, string recipientAddress, decimal amount, decimal fee)
         {
             this.sender = SenderAddress;
             this.recipient = RecipientAddress;
@@ -34,7 +28,7 @@ namespace BlockchainAssignment.Wallet
             this.fee = Fee;
             this.timestamp = DateTime.Now;
             this.hash = createHashTransaction();
-            this.signature = Wallet.CreateSignature(sender, privateKey, hash);
+            this.signature = Wallet.createSignature(sender, privateKey, hash);
         }
         public string createHashTransaction()
         {
@@ -44,16 +38,47 @@ namespace BlockchainAssignment.Wallet
             String hash = string.Empty;
             foreach (byte x in hashByte)
                 hash += String.Format("{0:x2}", x);
-            this.hash = hash;
             return hash;
         }
-        public override string ToString()
+
+        public bool isValid()
         {
-            return $"Transaction: {hash}\nSender: {sender}\nRecipient: {recipient}\nAmount: {amount}\nFee: {fee}\nTimestamp: {timestamp}";
+            if (string.IsNullOrWhiteSpace(signature) || signature == "null")
+                return false;
+
+            if (sender == miningRewardSenderID)
+            {
+                if (fee != 0)
+                    return false;
+                if (string.IsNullOrWhiteSpace(recipient))
+                    return false;
+                if (amount <= 0)
+                    return false;
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(sender) || string.IsNullOrWhiteSpace(recipient))
+                    return false;
+                if (amount <= 0)
+                    return false;
+                if (fee < 0)
+                    return false;
+            }
+
+            if (string.IsNullOrEmpty(hash))
+                return false;
+
+            String storedHash = hash;
+            this.hash = createHashTransaction();
+            if (storedHash != hash)
+                return false;
+
+            return Wallet.ValidateSignature(sender, hash, signature);
         }
 
-       
-
-       
+        public override string ToString()
+        {
+            return "Transaction: " + hash + "\nSender: " + sender + "\nRecipient: " + recipient + "\nAmount: " + amount + "\nFee: " + fee + "\nTimestamp: " + timestamp;
+        }
     }
 }

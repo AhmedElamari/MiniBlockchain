@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -125,6 +125,28 @@ namespace BlockchainAssignment
         }
         private void button_newTransaction(object sender, EventArgs e)
         {
+            string publicId = textBox2.Text == null ? string.Empty : textBox2.Text.Trim();
+            string privateKey = textBox3.Text == null ? string.Empty : textBox3.Text.Trim();
+            string recipient = textBox6.Text == null ? string.Empty : textBox6.Text.Trim();
+
+            if (string.IsNullOrWhiteSpace(publicId))
+            {
+                MessageBox.Show("Please enter a Public ID (sender).", "Invalid Input");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(privateKey))
+            {
+                MessageBox.Show("Please enter a Private Key.", "Invalid Input");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(recipient))
+            {
+                MessageBox.Show("Please enter a Receiver Key.", "Invalid Input");
+                return;
+            }
+
             if (!decimal.TryParse(textBox4.Text, out decimal amount))
             {
                 MessageBox.Show("Please enter a valid number for Amount.", "Invalid Input");
@@ -137,7 +159,35 @@ namespace BlockchainAssignment
                 return;
             }
 
-            Transaction newTransaction = new Transaction(textBox3.Text, textBox2.Text, textBox6.Text, amount, fee);
+            if (amount <= 0)
+            {
+                MessageBox.Show("Amount must be greater than zero.", "Invalid Input");
+                return;
+            }
+
+            if (fee < 0)
+            {
+                MessageBox.Show("Fee cannot be negative.", "Invalid Input");
+                return;
+            }
+
+            Transaction newTransaction;
+            try
+            {
+                newTransaction = new Transaction(privateKey, publicId, recipient, amount, fee);
+            }
+            catch
+            {
+                MessageBox.Show("Invalid key format.", "Error");
+                return;
+            }
+
+            if (!newTransaction.isValid())
+            {
+                MessageBox.Show("Invalid transaction (check keys, amount, fee, and signature).", "Error");
+                return;
+            }
+
             blockchain.transactionPool.Add(newTransaction);
             richTextBox1.Text = newTransaction.ToString();
         }
@@ -159,11 +209,16 @@ namespace BlockchainAssignment
 
         private void button_createBlock(object sender, EventArgs e)
         {
-            List<Transaction> chosenTransactions = blockchain.GetPendingTransactions();
+            List<Transaction> chosenTransactions = blockchain.getTransactionsForNextBlock();
             string minerAddress = textBox2.Text == null ? string.Empty : textBox2.Text.Trim();
             Block newBlock = new Block(blockchain.GetLastBlock(), chosenTransactions, minerAddress);
-            blockchain.AddBlock(newBlock, chosenTransactions);
-            richTextBox1.Text = blockchain.returnBlockchain(newBlock) + "\n";
+            if (!blockchain.AddBlock(newBlock, out string failureMessage))
+            {
+                MessageBox.Show(failureMessage, "Error");
+                return;
+            }
+
+            richTextBox1.Text = blockchain.returnBlockchain(newBlock.Index) + "\n";
         }
 
         private void button_readAll(object sender, EventArgs e)
@@ -171,7 +226,7 @@ namespace BlockchainAssignment
             richTextBox1.Clear();
             for (int i = 0; i < blockchain.GetBlocks().Count; i++)
             {
-                richTextBox1.Text += "  " + blockchain.returnBlockchain(blockchain.GetBlocks()[i]) + "\n" + "\n";
+                richTextBox1.Text += "  " + blockchain.returnBlockchain(blockchain.GetBlocks()[i].Index) + "\n" + "\n";
             }
         }
 
@@ -183,6 +238,13 @@ namespace BlockchainAssignment
             {
                 richTextBox1.Text += t.ToString() + "\n" + "\n";
             }   
+        }
+
+        private void validateBlockchain_Click(object sender, EventArgs e)
+        {
+            bool ok = blockchain.validateBlockchain(out string message);
+            MessageBox.Show(message, ok ? "Blockchain valid" : "Blockchain invalid");
+            richTextBox1.Text = message;
         }
 
         private void checkBalanceButton(object sender, EventArgs e)

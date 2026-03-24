@@ -7,8 +7,6 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows.Forms;
-
 
 namespace BlockchainAssignment
 {
@@ -60,7 +58,7 @@ namespace BlockchainAssignment
 
 
 
-        public string CreateHash()
+        public string createHash()
         {
             SHA256 hasher = SHA256Managed.Create();
             string input = Index.ToString() + timeStamp.ToString() + previousHash + nonce + difficulty + reward + merikleRoot;
@@ -87,20 +85,20 @@ namespace BlockchainAssignment
         public string Mine()
         {
             string target = new string('0', (int)difficulty);
-            Hash = CreateHash();
+            Hash = createHash();
             while (!Hash.StartsWith(target))
             {
                 nonce++;
 
-                Hash = CreateHash();
+                Hash = createHash();
             }
             return Hash;
         }
 
         public string rewardMiner()
         {
-           decimal fees = transactionList.Sum(t => t.fee);
-            Transaction rewardTransaction = new Transaction("", "Mine Rewards", minerAddress, reward + fees, 0);
+           decimal fees = transactionList.Where(t => t.sender != Transaction.miningRewardSenderID).Sum(t => t.fee);
+            Transaction rewardTransaction = new Transaction("", Transaction.miningRewardSenderID, minerAddress, reward + fees, 0);
             transactionList.Add(rewardTransaction); 
             return rewardTransaction.ToString();
         }
@@ -126,7 +124,7 @@ namespace BlockchainAssignment
 
             MessageBox.Show("All blocks are valid.");
         }
-        public decimal CheckBalance(List<Block> blocks, string walletAddress)
+        public decimal checkBalance(List<Block> blocks, string walletAddress)
         {
             decimal balance = 0;
             foreach (Block currentBlock in blocks)

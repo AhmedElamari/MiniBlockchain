@@ -1,4 +1,4 @@
-﻿namespace BlockchainAssignment
+namespace BlockchainAssignment
 {
     partial class BlockchainApp
     {
@@ -239,6 +239,14 @@
             this.button6.Text = "Check Balance";
             this.button6.UseVisualStyleBackColor = true;
             this.button6.Click += new System.EventHandler(this.checkBalanceButton);
+         
+            this.buttonValidateBlockchain.Location = new System.Drawing.Point(268, 691);
+            this.buttonValidateBlockchain.Name = "buttonValidateBlockchain";
+            this.buttonValidateBlockchain.Size = new System.Drawing.Size(180, 65);
+            this.buttonValidateBlockchain.TabIndex = 21;
+            this.buttonValidateBlockchain.Text = "Validate Blockchain";
+            this.buttonValidateBlockchain.UseVisualStyleBackColor = true;
+            this.buttonValidateBlockchain.Click += new System.EventHandler(this.validateBlockchain_Click);
             // 
             // BlockchainApp
             // 
