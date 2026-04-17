@@ -234,6 +234,7 @@ namespace BlockchainAssignment
             Block lastBlock = blockchain.getLastBlock();
             List<Transaction> chosenTransactions = blockchain.getTransactionsForNextBlock();
             string minerAddress = textBox2.Text == null ? string.Empty : textBox2.Text.Trim();
+            float difficulty = blockchain.getDifficultyForNextBlock();
 
             _backgroundWorkRunning = true;
             SetMiningButtonsEnabled(false);
@@ -242,7 +243,7 @@ namespace BlockchainAssignment
             {
                 try
                 {
-                    Block candidate = Block.CreateUnminedCandidate(lastBlock, chosenTransactions, minerAddress, DateTime.Now, 4f);
+                    Block candidate = Block.CreateUnminedCandidate(lastBlock, chosenTransactions, minerAddress, DateTime.Now, difficulty);
                     Block.MiningMessageCallback cb = message =>
                         BeginInvoke(new Action(() => SetRichText(message + Environment.NewLine, true)));
                     candidate.Mine(Environment.ProcessorCount, cb);

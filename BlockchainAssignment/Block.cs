@@ -97,7 +97,7 @@ namespace BlockchainAssignment
                    "\n Nonce: " + nonce % 1000 +
                    "\n Difficulty: " + difficulty +
                    "\n Reward: " + reward +
-                   "\n Merical Root: " + merikleRoot;
+                   "\n Merkle Root: " + merikleRoot;
         }
 
         public string Mine()
@@ -112,7 +112,6 @@ namespace BlockchainAssignment
 
             callback?.Invoke("Mining (" + workerCount + " thread(s))…");
 
-            string targetPrefix = new string('0', (int)difficulty);
             object winnerLock = new object();
             string winningHash = null;
             int winningNonce = 0;
@@ -130,7 +129,7 @@ namespace BlockchainAssignment
                         while (Volatile.Read(ref stopMining) == 0)
                         {
                             string hash = HashForNonce(hasher, n);
-                            if (hash.StartsWith(targetPrefix))
+                            if (AdaptiveDifficulty.HashMeetsDifficulty(hash, difficulty))
                             {
                                 lock (winnerLock)
                                 {
