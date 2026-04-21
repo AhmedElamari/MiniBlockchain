@@ -19,6 +19,8 @@ namespace BlockchainAssignment
             InitializeComponent();
             blockchain = new Blockchain();
             richTextBox1.Text = "New Blockchain initialised.";
+            comboBox1.Items.AddRange(Enum.GetNames(typeof(Blockchain.MiningPolicy)));
+            comboBox1.SelectedIndex = 0;
         }
 
         private void SetRichText(string text, bool append)
@@ -234,7 +236,8 @@ namespace BlockchainAssignment
                 return;
 
             Block lastBlock = blockchain.getLastBlock();
-            List<Transaction> chosenTransactions = blockchain.getTransactionsForNextBlock();
+            Blockchain.MiningPolicy miningPolicy = (Blockchain.MiningPolicy)comboBox1.SelectedIndex;
+            List<Transaction> chosenTransactions = blockchain.getTransactionsForNextBlock(blockchain.getTransactionsPerBlock(), miningPolicy, textBox2.Text);
             string minerAddress = textBox2.Text == null ? string.Empty : textBox2.Text.Trim();
             if (string.IsNullOrWhiteSpace(minerAddress))
             {
@@ -407,6 +410,20 @@ namespace BlockchainAssignment
         private void checkBalanceButton(object sender, EventArgs e)
         {
             updateText(blockchain.getLastBlock().checkBalance(blockchain.getBlocks(), textBox2.Text).ToString());
+        }
+
+        private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+
+            string minerAddress = textBox2.Text == null ? string.Empty : textBox2.Text.Trim();
+            if (string.IsNullOrWhiteSpace(minerAddress))
+            {
+                MessageBox.Show("Please enter a Public ID (miner) for the reward transaction.", "Mining");
+                return;
+            }
+            Blockchain.MiningPolicy miningPolicy = (Blockchain.MiningPolicy)comboBox1.SelectedIndex;
+            List<Transaction> transactions = blockchain.getTransactionsForNextBlock(blockchain.getTransactionsPerBlock(), miningPolicy, minerAddress);
+            richTextBox1.Text = string.Join("\n", transactions.Select(t => t.ToString()));
         }
     }
 }

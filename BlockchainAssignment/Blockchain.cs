@@ -146,14 +146,45 @@ namespace BlockchainAssignment
             return transactionPool.Take(n).ToList();
         }
 
-        public List<Transaction> getTransactionsForNextBlock()
+         public List<Transaction> getTransactionsForNextBlock(int transactionsPerBlock, MiningPolicy miningPolicy, string minerAddress)
         {
-            return getTransactionsForNextBlock(transactionsPerBlock);
+            IEnumerable<Transaction> filteredPool = transactionPool;
+
+            switch (miningPolicy)
+            {
+                case MiningPolicy.FirstComeFirstServe:
+                    filteredPool = filteredPool.OrderBy(t => t.timestamp);
+                    break;
+                case MiningPolicy.HighestFeeFirst:
+                    filteredPool = filteredPool.OrderByDescending(t => t.fee);
+                    break;
+                case MiningPolicy.LongestWait:
+                    filteredPool = filteredPool.OrderBy(t => t.timestamp);
+                    break;
+                case MiningPolicy.Random:
+                    filteredPool = filteredPool.OrderBy(t => Guid.NewGuid());
+                    break;
+                case MiningPolicy.AddressPreferential:
+                    filteredPool = filteredPool.Where(t => t.recipient == minerAddress);
+                    break;
+                default:
+                    filteredPool = filteredPool.OrderBy(t => t.timestamp);
+                    break;
+            }
+            return filteredPool.Take(transactionsPerBlock).ToList();
         }
 
         public int getTransactionsPerBlock()
         {
             return transactionsPerBlock;
+        }
+
+        public enum MiningPolicy{
+            FirstComeFirstServe,
+            HighestFeeFirst,
+            LongestWait,
+            Random,
+            AddressPreferential
         }
     }
 }
