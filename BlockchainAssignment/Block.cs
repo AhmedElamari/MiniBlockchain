@@ -198,7 +198,7 @@ namespace BlockchainAssignment
                     {
                         balance -= transaction.amount + transaction.fee;
                     }
-                    else if (transaction.recipient == walletAddress)
+                    if (transaction.recipient == walletAddress)
                     {
                         balance += transaction.amount;
                     }
