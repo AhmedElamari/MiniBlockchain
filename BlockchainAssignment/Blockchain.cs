@@ -7,6 +7,7 @@ namespace BlockchainAssignment
 {
     public class Blockchain
     {
+        private const float DifficultyTolerance = 0.001f;
         private readonly List<Block> blocks = new List<Block>();
         private int transactionsPerBlock = 5;
         public List<Transaction> transactionPool = new List<Transaction>();
@@ -33,6 +34,11 @@ namespace BlockchainAssignment
             return blocks;
         }
 
+        public float getDifficultyForNextBlock()
+        {
+            return AdaptiveDifficulty.GetNextDifficulty(blocks);
+        }
+
         public bool addBlock(Block block, out string failureMessage)
         {
             failureMessage = null;
@@ -49,7 +55,8 @@ namespace BlockchainAssignment
             }
 
             Block previous = getLastBlock();
-            if (!validateNonGenesisBlock(block, previous, out failureMessage))
+            float expectedDifficulty = getDifficultyForNextBlock();
+            if (!validateNonGenesisBlock(block, previous, expectedDifficulty, out failureMessage))
                 return false;
 
             blocks.Add(block);
@@ -74,7 +81,9 @@ namespace BlockchainAssignment
             {
                 Block current = blocks[i];
                 Block prev = blocks[i - 1];
-                if (!validateNonGenesisBlock(current, prev, out string fail))
+                float expectedDifficulty = AdaptiveDifficulty.GetNextDifficulty(blocks, i);
+                string fail;
+                if (!validateNonGenesisBlock(current, prev, expectedDifficulty, out fail))
                 {
                     message = fail;
                     return false;
@@ -85,7 +94,7 @@ namespace BlockchainAssignment
             return true;
         }
 
-        private static bool validateNonGenesisBlock(Block block, Block previous, out string failureMessage)
+        private static bool validateNonGenesisBlock(Block block, Block previous, float expectedDifficulty, out string failureMessage)
         {
             failureMessage = null;
             if (block.previousHash != previous.Hash)
@@ -100,8 +109,13 @@ namespace BlockchainAssignment
                 return false;
             }
 
-            string target = new string('0', (int)block.difficulty);
-            if (string.IsNullOrEmpty(block.Hash) || !block.Hash.StartsWith(target))
+            if (Math.Abs(block.difficulty - expectedDifficulty) > DifficultyTolerance)
+            {
+                failureMessage = "Block " + block.Index + " has unexpected difficulty. Expected " + expectedDifficulty + " but was " + block.difficulty + ".";
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(block.Hash) || !AdaptiveDifficulty.HashMeetsDifficulty(block.Hash, block.difficulty))
             {
                 failureMessage = "Block " + block.Index + " does not satisfy proof of work.";
                 return false;

@@ -44,7 +44,7 @@ namespace BlockchainAssignment
 
         public Block(Block lastBlock, List<Transaction> transactions, string minerRewardAddress, DateTime timeStamp, float difficulty, bool autoMine)
         {
-            if (lastBlock == null) throw new ArgumentNullException(nameof(lastBlock));
+            if (lastBlock == null) throw new ArgumentNullException("lastBlock");
 
             this.timeStamp = timeStamp;
             this.Index = lastBlock.Index + 1;
@@ -55,10 +55,7 @@ namespace BlockchainAssignment
             this.difficulty = difficulty;
             rewardMiner(this.timeStamp);
             this.merikleRoot = MerkleRoot(this.transactionList);
-            if (autoMine)
-                this.Hash = Mine();
-            else
-                this.Hash = string.Empty;
+            this.Hash = autoMine ? Mine() : string.Empty;
         }
 
         public static Block CreateUnminedCandidate(Block lastBlock, List<Transaction> transactions, string minerRewardAddress, DateTime timeStamp, float difficulty)
@@ -74,17 +71,13 @@ namespace BlockchainAssignment
         public string CreateHashForNonce(int nonceValue)
         {
             using (SHA256 hasher = SHA256.Create())
-                return HashForNonce(hasher, nonceValue);
+                return HashTools.ByteArrayToString(HashBytesForNonce(hasher, nonceValue));
         }
 
-        private string HashForNonce(SHA256 hasher, int nonceValue)
+        private byte[] HashBytesForNonce(SHA256 hasher, int nonceValue)
         {
             string input = Index.ToString() + timeStamp.ToString() + previousHash + nonceValue + difficulty + reward + merikleRoot;
-            byte[] hashByte = hasher.ComputeHash(Encoding.UTF8.GetBytes(input));
-            String hash = string.Empty;
-            foreach (byte x in hashByte)
-                hash += String.Format("{0:x2}", x);
-            return hash;
+            return hasher.ComputeHash(Encoding.UTF8.GetBytes(input));
         }
 
         public override string ToString()
@@ -97,7 +90,7 @@ namespace BlockchainAssignment
                    "\n Nonce: " + nonce % 1000 +
                    "\n Difficulty: " + difficulty +
                    "\n Reward: " + reward +
-                   "\n Merical Root: " + merikleRoot;
+                   "\n Merkle Root: " + merikleRoot;
         }
 
         public string Mine()
@@ -110,13 +103,14 @@ namespace BlockchainAssignment
             if (workerCount < 1)
                 workerCount = 1;
 
-            callback?.Invoke("Mining (" + workerCount + " thread(s))…");
+            if (callback != null)
+                callback("Mining (" + workerCount + " thread(s))...");
 
-            string targetPrefix = new string('0', (int)difficulty);
             object winnerLock = new object();
             string winningHash = null;
             int winningNonce = 0;
             int stopMining = 0;
+            byte[] targetBytes = AdaptiveDifficulty.GetTargetBytes(difficulty);
 
             Thread[] threads = new Thread[workerCount];
             for (int i = 0; i < workerCount; i++)
@@ -129,9 +123,10 @@ namespace BlockchainAssignment
                         int n = workerIndex;
                         while (Volatile.Read(ref stopMining) == 0)
                         {
-                            string hash = HashForNonce(hasher, n);
-                            if (hash.StartsWith(targetPrefix))
+                            byte[] hashBytes = HashBytesForNonce(hasher, n);
+                            if (AdaptiveDifficulty.HashMeetsDifficulty(hashBytes, targetBytes))
                             {
+                                string hash = HashTools.ByteArrayToString(hashBytes);
                                 lock (winnerLock)
                                 {
                                     if (winningHash == null)
@@ -156,7 +151,9 @@ namespace BlockchainAssignment
             this.nonce = winningNonce;
             this.Hash = winningHash ?? string.Empty;
 
-            callback?.Invoke("Done. Nonce " + winningNonce + ".");
+            if (callback != null)
+                callback("Done. Nonce " + winningNonce + ".");
+
             return this.Hash;
         }
 
@@ -172,7 +169,7 @@ namespace BlockchainAssignment
         {
             if (blocks == null)
             {
-                throw new ArgumentNullException(nameof(blocks));
+                throw new ArgumentNullException("blocks");
             }
 
             for (int i = 1; i < blocks.Count; i++)
@@ -205,10 +202,6 @@ namespace BlockchainAssignment
                     {
                         balance += transaction.amount;
                     }
-                }
-                if (currentBlock.minerAddress == walletAddress)
-                {
-                    balance += currentBlock.reward + currentBlock.transactionList.Sum(t => t.fee);
                 }
             }
             return balance;

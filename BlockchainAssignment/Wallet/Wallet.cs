@@ -62,8 +62,19 @@ namespace BlockchainAssignment.Wallet
             if (key == null)
                 return false;
 
-            ECDsaCng dsa = new ECDsaCng(key);
-            return dsa.VerifyData(HashTools.StringToByteArray(datahash), Convert.FromBase64String(datasig));
+            try
+            {
+                using (ECDsaCng dsa = new ECDsaCng(key))
+                    return dsa.VerifyData(HashTools.StringToByteArray(datahash), Convert.FromBase64String(datasig));
+            }
+            catch (FormatException)
+            {
+                return false;
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
         }
         public static String createSignature(String publicID, String privateKey, String datahash)
         {
