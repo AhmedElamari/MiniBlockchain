@@ -166,13 +166,15 @@ namespace BlockchainAssignment
                 return;
             }
 
-            if (!decimal.TryParse(textBox4.Text, out decimal amount))
+            decimal amount;
+            if (!decimal.TryParse(textBox4.Text, out amount))
             {
                 MessageBox.Show("Please enter a valid number for Amount.", "Invalid Input");
                 return;
             }
 
-            if (!decimal.TryParse(textBox5.Text, out decimal fee))
+            decimal fee;
+            if (!decimal.TryParse(textBox5.Text, out fee))
             {
                 MessageBox.Show("Please enter a valid number for Fee.", "Invalid Input");
                 return;
@@ -234,6 +236,12 @@ namespace BlockchainAssignment
             Block lastBlock = blockchain.getLastBlock();
             List<Transaction> chosenTransactions = blockchain.getTransactionsForNextBlock();
             string minerAddress = textBox2.Text == null ? string.Empty : textBox2.Text.Trim();
+            if (string.IsNullOrWhiteSpace(minerAddress))
+            {
+                MessageBox.Show("Please enter a Public ID (miner) for the reward transaction.", "Mining");
+                return;
+            }
+
             float difficulty = blockchain.getDifficultyForNextBlock();
 
             _backgroundWorkRunning = true;
@@ -252,7 +260,8 @@ namespace BlockchainAssignment
                     {
                         try
                         {
-                            if (!blockchain.addBlock(candidate, out string failureMessage))
+                            string failureMessage;
+                            if (!blockchain.addBlock(candidate, out failureMessage))
                                 MessageBox.Show(failureMessage, "Error");
                             else
                                 SetRichText(blockchain.returnBlockchain(candidate.Index) + "\n", false);
@@ -317,21 +326,20 @@ namespace BlockchainAssignment
 
                     double[] singleMs = new double[5];
                     double[] parallelMs = new double[5];
-
-                    double TimeMine(int workerCount, DateTime ts)
+                    Func<int, DateTime, double> timeMine = (workerCount, ts) =>
                     {
                         var block = Block.CreateUnminedCandidate(lastBlock, new List<Transaction>(transactionsSnapshot), minerAddress, ts, 5f);
                         var sw = Stopwatch.StartNew();
                         block.Mine(workerCount, null);
                         sw.Stop();
                         return sw.Elapsed.TotalMilliseconds;
-                    }
+                    };
 
                     for (int sample = 0; sample < 5; sample++)
                     {
                         DateTime sampleTimestamp = DateTime.UtcNow;
-                        singleMs[sample] = TimeMine(1, sampleTimestamp);
-                        parallelMs[sample] = TimeMine(workers, sampleTimestamp);
+                        singleMs[sample] = timeMine(1, sampleTimestamp);
+                        parallelMs[sample] = timeMine(workers, sampleTimestamp);
                         report.AppendLine("Sample " + (sample + 1) + ": 1 thread = " + singleMs[sample].ToString("F2") + " ms, " + workers + " threads = " + parallelMs[sample].ToString("F2") + " ms");
                     }
 
@@ -390,7 +398,8 @@ namespace BlockchainAssignment
 
         private void validateBlockchain_Click(object sender, EventArgs e)
         {
-            bool ok = blockchain.validateBlockchain(out string message);
+            string message;
+            bool ok = blockchain.validateBlockchain(out message);
             MessageBox.Show(message, ok ? "Blockchain valid" : "Blockchain invalid");
             SetRichText(message, false);
         }

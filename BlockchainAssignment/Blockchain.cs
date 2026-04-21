@@ -81,8 +81,9 @@ namespace BlockchainAssignment
             {
                 Block current = blocks[i];
                 Block prev = blocks[i - 1];
-                float expectedDifficulty = AdaptiveDifficulty.GetNextDifficulty(blocks.Take(i).ToList());
-                if (!validateNonGenesisBlock(current, prev, expectedDifficulty, out string fail))
+                float expectedDifficulty = AdaptiveDifficulty.GetNextDifficulty(blocks, i);
+                string fail;
+                if (!validateNonGenesisBlock(current, prev, expectedDifficulty, out fail))
                 {
                     message = fail;
                     return false;

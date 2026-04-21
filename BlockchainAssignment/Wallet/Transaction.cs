@@ -1,6 +1,7 @@
 using System;
 using System.Text;
 using System.Security.Cryptography;
+using BlockchainAssignment.HashCode;
 
 namespace BlockchainAssignment.Wallet
 {
@@ -36,13 +37,12 @@ namespace BlockchainAssignment.Wallet
 
         public string createHashTransaction()
         {
-            SHA256 hasher = SHA256Managed.Create();
-            String input = timestamp.ToString("O") + sender + recipient + amount + fee;
-            Byte[] hashByte = hasher.ComputeHash(Encoding.UTF8.GetBytes(input));
-            String hash = string.Empty;
-            foreach (byte x in hashByte)
-                hash += String.Format("{0:x2}", x);
-            return hash;
+            using (SHA256 hasher = SHA256Managed.Create())
+            {
+                String input = timestamp.ToString("O") + sender + recipient + amount + fee;
+                Byte[] hashByte = hasher.ComputeHash(Encoding.UTF8.GetBytes(input));
+                return HashTools.ByteArrayToString(hashByte);
+            }
         }
 
         public bool isValid()
@@ -73,11 +73,11 @@ namespace BlockchainAssignment.Wallet
                 return false;
 
             String storedHash = hash;
-            this.hash = createHashTransaction();
-            if (storedHash != hash)
+            String computedHash = createHashTransaction();
+            if (storedHash != computedHash)
                 return false;
 
-            return Wallet.ValidateSignature(sender, hash, signature);
+            return Wallet.ValidateSignature(sender, computedHash, signature);
         }
 
         public override string ToString()

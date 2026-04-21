@@ -1,12 +1,14 @@
+using BlockchainAssignment.HashCode;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Numerics;
 
 namespace BlockchainAssignment
 {
     public static class AdaptiveDifficulty
     {
+        private const int HashByteCount = 32;
+        private const int HashHexLength = HashByteCount * 2;
         private const float InitialDifficulty = 4f;
         private const float MinimumDifficulty = 1f;
         private const float MaximumDifficulty = 6f;
@@ -16,29 +18,63 @@ namespace BlockchainAssignment
 
         public static float GetNextDifficulty(List<Block> blocks)
         {
-            if (blocks == null || blocks.Count < 2)
+            return GetNextDifficulty(blocks, blocks == null ? 0 : blocks.Count);
+        }
+
+        public static float GetNextDifficulty(List<Block> blocks, int count)
+        {
+            if (blocks == null || count < 2)
             {
                 return InitialDifficulty;
             }
 
-            double emaSeconds = GetAverageIntervalSeconds(blocks);
+            if (count > blocks.Count)
+            {
+                count = blocks.Count;
+            }
+
+            double emaSeconds = GetAverageIntervalSeconds(blocks, count);
             double ratio = TargetBlockTimeSeconds / emaSeconds;
             double change = Math.Log(ratio) / Math.Log(16d);
-            float nextDifficulty = (float)(blocks[blocks.Count - 1].difficulty + change);
+            float nextDifficulty = (float)(blocks[count - 1].difficulty + change);
 
             return ClampDifficulty((float)Math.Round(nextDifficulty, 3, MidpointRounding.AwayFromZero));
         }
 
         public static bool HashMeetsDifficulty(string hashHex, float difficulty)
         {
-            if (string.IsNullOrWhiteSpace(hashHex))
+            byte[] hashBytes;
+            if (!TryParseHash(hashHex, out hashBytes))
             {
                 return false;
             }
 
-            BigInteger hashValue = ParseHex(hashHex);
-            BigInteger target = GetTarget(difficulty);
-            return hashValue <= target;
+            return HashMeetsDifficulty(hashBytes, GetTargetBytes(difficulty));
+        }
+
+        internal static byte[] GetTargetBytes(float difficulty)
+        {
+            return ToBigEndianBytes(GetTarget(difficulty));
+        }
+
+        internal static bool HashMeetsDifficulty(byte[] hashBytes, byte[] targetBytes)
+        {
+            if (hashBytes == null || targetBytes == null || hashBytes.Length != HashByteCount || targetBytes.Length != HashByteCount)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < HashByteCount; i++)
+            {
+                if (hashBytes[i] == targetBytes[i])
+                {
+                    continue;
+                }
+
+                return hashBytes[i] < targetBytes[i];
+            }
+
+            return true;
         }
 
         private static float ClampDifficulty(float difficulty)
@@ -56,11 +92,11 @@ namespace BlockchainAssignment
             return difficulty;
         }
 
-        private static double GetAverageIntervalSeconds(List<Block> blocks)
+        private static double GetAverageIntervalSeconds(List<Block> blocks, int count)
         {
             double emaSeconds = GetIntervalSeconds(blocks[1], blocks[0]);
 
-            for (int i = 2; i < blocks.Count; i++)
+            for (int i = 2; i < count; i++)
             {
                 double intervalSeconds = GetIntervalSeconds(blocks[i], blocks[i - 1]);
                 emaSeconds = (EmaAlpha * intervalSeconds) + ((1d - EmaAlpha) * emaSeconds);
@@ -93,18 +129,45 @@ namespace BlockchainAssignment
             return target < BigInteger.Zero ? BigInteger.Zero : target;
         }
 
-        private static BigInteger ParseHex(string hashHex)
+        private static byte[] ToBigEndianBytes(BigInteger value)
         {
-            string evenHex = hashHex.Length % 2 == 0 ? hashHex : "0" + hashHex;
-            byte[] bytes = new byte[(evenHex.Length / 2) + 1];
+            byte[] bytes = new byte[HashByteCount];
+            byte[] littleEndian = value.ToByteArray();
+            int count = Math.Min(HashByteCount, littleEndian.Length);
 
-            for (int i = 0; i < evenHex.Length; i += 2)
+            for (int i = 0; i < count; i++)
             {
-                int byteIndex = bytes.Length - 2 - (i / 2);
-                bytes[byteIndex] = byte.Parse(evenHex.Substring(i, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+                bytes[HashByteCount - 1 - i] = littleEndian[i];
             }
 
-            return new BigInteger(bytes);
+            return bytes;
+        }
+
+        private static bool TryParseHash(string hashHex, out byte[] hashBytes)
+        {
+            hashBytes = null;
+            if (string.IsNullOrWhiteSpace(hashHex) || hashHex.Length != HashHexLength)
+            {
+                return false;
+            }
+
+            try
+            {
+                hashBytes = HashTools.StringToByteArray(hashHex);
+                return hashBytes.Length == HashByteCount;
+            }
+            catch (FormatException)
+            {
+                return false;
+            }
+            catch (OverflowException)
+            {
+                return false;
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
         }
     }
 }
