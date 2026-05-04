@@ -13,14 +13,17 @@ namespace BlockchainAssignment
     {
         private Blockchain blockchain;
         private volatile bool _backgroundWorkRunning;
+        private bool _miningPolicyUiReady;
 
         public BlockchainApp()
         {
             InitializeComponent();
             blockchain = new Blockchain();
             richTextBox1.Text = "New Blockchain initialised.";
+            _miningPolicyUiReady = false;
             comboBox1.Items.AddRange(Enum.GetNames(typeof(Blockchain.MiningPolicy)));
             comboBox1.SelectedIndex = 0;
+            _miningPolicyUiReady = true;
         }
 
         private void SetRichText(string text, bool append)
@@ -236,9 +239,9 @@ namespace BlockchainAssignment
                 return;
 
             Block lastBlock = blockchain.getLastBlock();
-            Blockchain.MiningPolicy miningPolicy = (Blockchain.MiningPolicy)comboBox1.SelectedIndex;
-            List<Transaction> chosenTransactions = blockchain.getTransactionsForNextBlock(blockchain.getTransactionsPerBlock(), miningPolicy, textBox2.Text);
             string minerAddress = textBox2.Text == null ? string.Empty : textBox2.Text.Trim();
+            Blockchain.MiningPolicy miningPolicy = (Blockchain.MiningPolicy)comboBox1.SelectedIndex;
+            List<Transaction> chosenTransactions = blockchain.getTransactionsForNextBlock(blockchain.getTransactionsPerBlock(), miningPolicy, minerAddress);
             if (string.IsNullOrWhiteSpace(minerAddress))
             {
                 MessageBox.Show("Please enter a Public ID (miner) for the reward transaction.", "Mining");
@@ -414,14 +417,17 @@ namespace BlockchainAssignment
 
         private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
         {
+            if (!_miningPolicyUiReady || comboBox1.SelectedIndex < 0)
+                return;
 
+            Blockchain.MiningPolicy miningPolicy = (Blockchain.MiningPolicy)comboBox1.SelectedIndex;
             string minerAddress = textBox2.Text == null ? string.Empty : textBox2.Text.Trim();
-            if (string.IsNullOrWhiteSpace(minerAddress))
+            if (miningPolicy == Blockchain.MiningPolicy.AddressPreferential && string.IsNullOrWhiteSpace(minerAddress))
             {
-                MessageBox.Show("Please enter a Public ID (miner) for the reward transaction.", "Mining");
+                MessageBox.Show("Please enter a Public ID (miner) to preview address-preferential selection.", "Mining");
                 return;
             }
-            Blockchain.MiningPolicy miningPolicy = (Blockchain.MiningPolicy)comboBox1.SelectedIndex;
+
             List<Transaction> transactions = blockchain.getTransactionsForNextBlock(blockchain.getTransactionsPerBlock(), miningPolicy, minerAddress);
             richTextBox1.Text = string.Join("\n", transactions.Select(t => t.ToString()));
         }

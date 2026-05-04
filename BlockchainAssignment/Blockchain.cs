@@ -146,14 +146,14 @@ namespace BlockchainAssignment
             return transactionPool.Take(n).ToList();
         }
 
-         public List<Transaction> getTransactionsForNextBlock(int transactionsPerBlock, MiningPolicy miningPolicy, string minerAddress)
+        public List<Transaction> getTransactionsForNextBlock(int transactionsPerBlock, MiningPolicy miningPolicy, string minerAddress)
         {
+            string miner = (minerAddress ?? string.Empty).Trim();
             IEnumerable<Transaction> filteredPool = transactionPool;
 
             switch (miningPolicy)
             {
                 case MiningPolicy.FirstComeFirstServe:
-                    filteredPool = filteredPool.OrderBy(t => t.timestamp);
                     break;
                 case MiningPolicy.HighestFeeFirst:
                     filteredPool = filteredPool.OrderByDescending(t => t.fee);
@@ -165,8 +165,12 @@ namespace BlockchainAssignment
                     filteredPool = filteredPool.OrderBy(t => Guid.NewGuid());
                     break;
                 case MiningPolicy.AddressPreferential:
-                    filteredPool = filteredPool.Where(t => t.recipient == minerAddress);
-                    break;
+                    {
+                        IEnumerable<Transaction> preferred = filteredPool.Where(t => t.recipient == miner);
+                        IEnumerable<Transaction> rest = filteredPool.Where(t => t.recipient != miner).OrderBy(t => t.timestamp);
+                        filteredPool = preferred.Concat(rest);
+                        break;
+                    }
                 default:
                     filteredPool = filteredPool.OrderBy(t => t.timestamp);
                     break;
