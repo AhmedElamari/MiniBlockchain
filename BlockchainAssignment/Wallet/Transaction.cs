@@ -13,7 +13,7 @@ namespace BlockchainAssignment.Wallet
         public string recipient;
         public decimal amount;
         public decimal fee;
-        private DateTime timestamp;
+        public DateTime timestamp { get; private set; }
         public decimal reward;
 
         public string Hash { get { return hash; } }

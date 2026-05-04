@@ -42,6 +42,7 @@ namespace BlockchainAssignment
             this.button6 = new System.Windows.Forms.Button();
             this.buttonValidateBlockchain = new System.Windows.Forms.Button();
             this.buttonBenchmarkMining = new System.Windows.Forms.Button();
+            this.comboBox1 = new System.Windows.Forms.ComboBox();
             PublicKey = new System.Windows.Forms.Label();
             label1 = new System.Windows.Forms.Label();
             label2 = new System.Windows.Forms.Label();
@@ -254,12 +255,23 @@ namespace BlockchainAssignment
             this.buttonBenchmarkMining.UseVisualStyleBackColor = true;
             this.buttonBenchmarkMining.Click += new System.EventHandler(this.button_benchmarkMining_Click);
             // 
+            // comboBox1
+            // 
+            this.comboBox1.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboBox1.FormattingEnabled = true;
+            this.comboBox1.Location = new System.Drawing.Point(996, 789);
+            this.comboBox1.Name = "comboBox1";
+            this.comboBox1.Size = new System.Drawing.Size(158, 33);
+            this.comboBox1.TabIndex = 23;
+            this.comboBox1.SelectedIndexChanged += new System.EventHandler(this.comboBox1_SelectedIndexChanged);
+            // 
             // BlockchainApp
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(12F, 25F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.SystemColors.ActiveCaption;
             this.ClientSize = new System.Drawing.Size(1362, 925);
+            this.Controls.Add(this.comboBox1);
             this.Controls.Add(this.button6);
             this.Controls.Add(this.button5);
             this.Controls.Add(this.button4);
@@ -311,6 +323,7 @@ namespace BlockchainAssignment
         private System.Windows.Forms.Button button6;
         private System.Windows.Forms.Button buttonValidateBlockchain;
         private System.Windows.Forms.Button buttonBenchmarkMining;
+        private System.Windows.Forms.ComboBox comboBox1;
     }
 }
 
