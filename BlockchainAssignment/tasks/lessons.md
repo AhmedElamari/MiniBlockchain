@@ -1,0 +1,1 @@
+Prefer assignment-level simplicity over production-style consensus helpers unless the brief requires them; PoS UX fix: forge tx list using selected validator address; adaptive difficulty skips PoS intervals.
