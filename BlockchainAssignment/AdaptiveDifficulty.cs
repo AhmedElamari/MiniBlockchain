@@ -98,6 +98,9 @@ namespace BlockchainAssignment
 
             for (int i = 2; i < count; i++)
             {
+                if (blocks[i].consensusType == "ProofOfStake")
+                    continue;
+
                 double intervalSeconds = GetIntervalSeconds(blocks[i], blocks[i - 1]);
                 emaSeconds = (EmaAlpha * intervalSeconds) + ((1d - EmaAlpha) * emaSeconds);
             }

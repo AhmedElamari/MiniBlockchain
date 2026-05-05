@@ -243,22 +243,26 @@ namespace BlockchainAssignment
             Block lastBlock = blockchain.getLastBlock();
             string minerAddress = textBox2.Text == null ? string.Empty : textBox2.Text.Trim();
             Blockchain.MiningPolicy miningPolicy = (Blockchain.MiningPolicy)comboBox1.SelectedIndex;
-            List<Transaction> chosenTransactions = blockchain.getTransactionsForNextBlock(blockchain.getTransactionsPerBlock(), miningPolicy, minerAddress);
-
             float difficulty = blockchain.getDifficultyForNextBlock();
 
             if (comboBox2.SelectedItem != null && comboBox2.SelectedItem.ToString() == "ProofOfStake")
             {
                 try
                 {
-                    Validator selectedValidator = blockchain.SelectValidator();
-                    if (selectedValidator == null)
+                    string pendingRegistry = blockchain.FormatPendingValidatorRegistryCanonical();
+                    string selectionProofHex;
+                    Validator selectedValidator;
+                    string computeError;
+                    if (!blockchain.TryComputeProofOfStakeProposer(lastBlock, pendingRegistry, out selectedValidator, out selectionProofHex, out computeError))
                     {
-                        MessageBox.Show("No validators registered.", "Proof of Stake");
+                        MessageBox.Show(computeError ?? "Unable to select a validator.", "Proof of Stake");
                         return;
                     }
 
-                    Block candidate = Block.CreateProofOfStakeCandidate(lastBlock, chosenTransactions, selectedValidator.publicKey, DateTime.Now, difficulty);
+                    string policyMinerAddress = selectedValidator.publicKey;
+                    List<Transaction> posTransactions = blockchain.getTransactionsForNextBlock(blockchain.getTransactionsPerBlock(), miningPolicy, policyMinerAddress);
+
+                    Block candidate = Block.CreateProofOfStakeCandidate(lastBlock, posTransactions, selectedValidator.publicKey, DateTime.Now, difficulty, pendingRegistry, selectionProofHex);
                     string failureMessage;
                     if (!blockchain.addBlock(candidate, out failureMessage))
                         MessageBox.Show(failureMessage, "Error");
@@ -273,6 +277,8 @@ namespace BlockchainAssignment
                 return;
             }
 
+            List<Transaction> chosenTransactions = blockchain.getTransactionsForNextBlock(blockchain.getTransactionsPerBlock(), miningPolicy, minerAddress);
+
             if (string.IsNullOrWhiteSpace(minerAddress))
             {
                 MessageBox.Show("Please enter a Public ID (miner) for the reward transaction.", "Mining");
@@ -286,7 +292,8 @@ namespace BlockchainAssignment
             {
                 try
                 {
-                    Block candidate = Block.CreateUnminedCandidate(lastBlock, chosenTransactions, minerAddress, DateTime.Now, difficulty);
+                    string pendingRegistry = blockchain.FormatPendingValidatorRegistryCanonical();
+                    Block candidate = Block.CreateUnminedCandidate(lastBlock, chosenTransactions, minerAddress, DateTime.Now, difficulty, pendingRegistry);
                     Block.MiningMessageCallback cb = message =>
                         BeginInvoke(new Action(() => SetRichText(message + Environment.NewLine, true)));
                     candidate.Mine(Environment.ProcessorCount, cb);

@@ -1,7 +1,11 @@
+using BlockchainAssignment.HashCode;
 using BlockchainAssignment.Wallet;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace BlockchainAssignment
 {
@@ -12,8 +16,7 @@ namespace BlockchainAssignment
         private int transactionsPerBlock = 5;
         public List<Transaction> transactionPool = new List<Transaction>();
 
-        private readonly List<Validator> validators = new List<Validator>();
-        private readonly Random random = new Random();
+        private readonly List<Validator> pendingValidators = new List<Validator>();
 
         public Blockchain()
         {
@@ -31,7 +34,7 @@ namespace BlockchainAssignment
             }
 
             string key = publicKey.Trim();
-            if (validators.Any(v => v.publicKey == key))
+            if (ContainsValidatorKey(key))
             {
                 errorMessage = "A validator with this public key is already registered.";
                 return;
@@ -43,37 +46,60 @@ namespace BlockchainAssignment
                 return;
             }
 
-            validators.Add(new Validator(key, stake));
+            pendingValidators.Add(new Validator(key, stake));
         }
 
         public List<Validator> getValidators()
         {
-            return validators.ToList();
+            var map = new SortedDictionary<string, decimal>(StringComparer.Ordinal);
+            Block tip = getLastBlock();
+            for (int i = 1; i <= tip.Index && i < blocks.Count; i++)
+                ApplyValidatorRegistryLines(map, blocks[i].validatorRegistryUpdates);
+
+            foreach (Validator v in pendingValidators)
+                map[v.publicKey] = v.stake;
+
+            return map.Select(kv => new Validator(kv.Key, kv.Value)).OrderBy(v => v.publicKey, StringComparer.Ordinal).ToList();
         }
 
-        public Validator SelectValidator()
+        public string FormatPendingValidatorRegistryCanonical()
         {
+            if (pendingValidators.Count == 0)
+                return string.Empty;
+
+            var sorted = pendingValidators.OrderBy(v => v.publicKey, StringComparer.Ordinal).ToList();
+            var sb = new StringBuilder();
+            foreach (Validator v in sorted)
+            {
+                sb.Append(v.publicKey);
+                sb.Append('|');
+                sb.Append(v.stake.ToString(CultureInfo.InvariantCulture));
+                sb.AppendLine();
+            }
+            return sb.ToString().TrimEnd();
+        }
+
+        public bool TryComputeProofOfStakeProposer(Block lastBlock, string canonicalRegistryUpdatesForNewBlock, out Validator selectedValidator, out string selectionProofHex, out string errorMessage)
+        {
+            selectedValidator = null;
+            selectionProofHex = string.Empty;
+            errorMessage = null;
+
+            List<Validator> validators = BuildValidatorsForProofOfStake(lastBlock, canonicalRegistryUpdatesForNewBlock);
             if (validators.Count == 0)
-                return null;
-
-            decimal totalStake = validators.Sum(v => v.stake);
-            if (totalStake <= 0)
             {
-                throw new InvalidOperationException("Total validator stake must be greater than zero.");
+                errorMessage = "No validators registered (pending registrations are committed when the next block is forged).";
+                return false;
             }
 
-            decimal roll = (decimal)random.NextDouble() * totalStake;
-            decimal runningTotal = 0;
-
-            foreach (Validator validator in validators)
+            selectedValidator = SelectProofOfStakeValidator(lastBlock.Hash, lastBlock.Index + 1, validators, out selectionProofHex);
+            if (selectedValidator == null)
             {
-                runningTotal += validator.stake;
-                if (roll <= runningTotal)
-                {
-                    return validator;
-                }
+                errorMessage = "Could not select a proof-of-stake validator.";
+                return false;
             }
-            return validators.Last();
+
+            return true;
         }
 
         public string returnBlockchain(int blockIndex)
@@ -118,6 +144,7 @@ namespace BlockchainAssignment
                 return false;
 
             blocks.Add(block);
+            pendingValidators.Clear();
 
             foreach (Transaction transaction in block.transactionList.Where(t => t.sender != Transaction.miningRewardSenderID))
             {
@@ -175,9 +202,17 @@ namespace BlockchainAssignment
 
             if (block.consensusType == "ProofOfStake")
             {
-                if (string.IsNullOrWhiteSpace(block.validatorAddress) || !validators.Any(v => v.publicKey == block.validatorAddress && v.stake > 0))
+                List<Validator> validatorsForLottery = BuildValidatorsForProofOfStake(previous, block.validatorRegistryUpdates ?? string.Empty);
+                Validator expectedValidator = SelectProofOfStakeValidator(previous.Hash, block.Index, validatorsForLottery, out string expectedProofHex);
+                if (expectedValidator == null || string.IsNullOrWhiteSpace(block.validatorAddress) || expectedValidator.publicKey != block.validatorAddress)
                 {
-                    failureMessage = "Block " + block.Index + " has an invalid proof-of-stake validator.";
+                    failureMessage = "Block " + block.Index + " does not match deterministic proof-of-stake validator selection.";
+                    return false;
+                }
+
+                if (!string.Equals(block.selectionProof ?? string.Empty, expectedProofHex ?? string.Empty, StringComparison.Ordinal))
+                {
+                    failureMessage = "Block " + block.Index + " has an invalid proof-of-stake selection proof.";
                     return false;
                 }
             }
@@ -197,6 +232,107 @@ namespace BlockchainAssignment
             }
 
             return true;
+        }
+
+        private bool ContainsValidatorKey(string key)
+        {
+            foreach (Validator v in EnumerateCommittedValidators())
+            {
+                if (v.publicKey == key)
+                    return true;
+            }
+
+            return pendingValidators.Any(v => v.publicKey == key);
+        }
+
+        private IEnumerable<Validator> EnumerateCommittedValidators()
+        {
+            Block tip = getLastBlock();
+            var map = new SortedDictionary<string, decimal>(StringComparer.Ordinal);
+            for (int i = 1; i <= tip.Index && i < blocks.Count; i++)
+                ApplyValidatorRegistryLines(map, blocks[i].validatorRegistryUpdates);
+
+            foreach (KeyValuePair<string, decimal> kv in map)
+                yield return new Validator(kv.Key, kv.Value);
+        }
+
+        private List<Validator> BuildValidatorsForProofOfStake(Block previousBlock, string registryUpdatesForNewBlock)
+        {
+            var map = new SortedDictionary<string, decimal>(StringComparer.Ordinal);
+            for (int i = 1; i <= previousBlock.Index && i < blocks.Count; i++)
+                ApplyValidatorRegistryLines(map, blocks[i].validatorRegistryUpdates);
+
+            ApplyValidatorRegistryLines(map, registryUpdatesForNewBlock ?? string.Empty);
+
+            return map.Select(kv => new Validator(kv.Key, kv.Value)).OrderBy(v => v.publicKey, StringComparer.Ordinal).ToList();
+        }
+
+        private static void ApplyValidatorRegistryLines(IDictionary<string, decimal> map, string lines)
+        {
+            if (string.IsNullOrWhiteSpace(lines))
+                return;
+
+            foreach (string raw in lines.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                int sep = raw.LastIndexOf('|');
+                if (sep <= 0 || sep >= raw.Length - 1)
+                    continue;
+
+                string pk = raw.Substring(0, sep).Trim();
+                string stakeStr = raw.Substring(sep + 1).Trim();
+                if (!decimal.TryParse(stakeStr, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal stake))
+                    continue;
+
+                if (string.IsNullOrWhiteSpace(pk) || stake <= 0)
+                    continue;
+
+                map[pk] = stake;
+            }
+        }
+
+        private static Validator SelectProofOfStakeValidator(string previousHash, int nextBlockIndex, IList<Validator> validators, out string selectionProofSeedHex)
+        {
+            selectionProofSeedHex = string.Empty;
+            if (validators == null || validators.Count == 0)
+                return null;
+
+            List<Validator> ordered = validators.OrderBy(v => v.publicKey, StringComparer.Ordinal).ToList();
+            decimal total = ordered.Sum(v => v.stake);
+            if (total <= 0)
+                return null;
+
+            var sb = new StringBuilder();
+            sb.Append(previousHash ?? string.Empty);
+            sb.Append('|');
+            sb.Append(nextBlockIndex.ToString(CultureInfo.InvariantCulture));
+            sb.Append('|');
+            foreach (Validator v in ordered)
+            {
+                sb.Append(v.publicKey);
+                sb.Append('=');
+                sb.Append(v.stake.ToString(CultureInfo.InvariantCulture));
+                sb.Append(';');
+            }
+
+            byte[] seed;
+            using (SHA256 sha = SHA256.Create())
+                seed = sha.ComputeHash(Encoding.UTF8.GetBytes(sb.ToString()));
+
+            selectionProofSeedHex = HashTools.ByteArrayToString(seed);
+
+            ulong roll = BitConverter.ToUInt64(seed, 0);
+            decimal ratio = (decimal)roll / ((decimal)ulong.MaxValue + 1m);
+            decimal target = ratio * total;
+
+            decimal cumulative = 0;
+            foreach (Validator v in ordered)
+            {
+                cumulative += v.stake;
+                if (target < cumulative)
+                    return v;
+            }
+
+            return ordered[ordered.Count - 1];
         }
 
         public List<Transaction> getPendingTransactionsPool()
@@ -252,7 +388,8 @@ namespace BlockchainAssignment
             return transactionsPerBlock;
         }
 
-        public enum MiningPolicy{
+        public enum MiningPolicy
+        {
             FirstComeFirstServe,
             HighestFeeFirst,
             LongestWait,
