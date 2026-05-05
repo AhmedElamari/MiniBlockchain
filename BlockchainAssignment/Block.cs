@@ -24,6 +24,10 @@ namespace BlockchainAssignment
         public decimal reward = 10;
         public string merikleRoot;
 
+        public string consensusType = "ProofOfWork";
+        public string validatorAddress = string.Empty;
+        public string selectionProof = string.Empty;
+
         public Block()
         {
             this.timeStamp = DateTime.Now;
@@ -32,6 +36,7 @@ namespace BlockchainAssignment
             this.nonce = 0;
             this.merikleRoot = string.Empty;
             this.minerAddress = string.Empty;
+            this.consensusType = "ProofOfWork";
             this.reward = 0;
             this.merikleRoot = MerkleRoot(transactionList);
             this.Hash = Mine();
@@ -52,6 +57,7 @@ namespace BlockchainAssignment
             this.transactionList = new List<Transaction>(transactions ?? new List<Transaction>());
             this.nonce = 0;
             this.minerAddress = minerRewardAddress ?? string.Empty;
+            this.consensusType = "ProofOfWork";
             this.difficulty = difficulty;
             rewardMiner(this.timeStamp);
             this.merikleRoot = MerkleRoot(this.transactionList);
@@ -61,6 +67,17 @@ namespace BlockchainAssignment
         public static Block CreateUnminedCandidate(Block lastBlock, List<Transaction> transactions, string minerRewardAddress, DateTime timeStamp, float difficulty)
         {
             return new Block(lastBlock, transactions, minerRewardAddress, timeStamp, difficulty, false);
+        }
+
+        public static Block CreateProofOfStakeCandidate(Block lastBlock, List<Transaction> transactions, string validatorPublicKey, DateTime timeStamp, float difficulty)
+        {
+            Block block = new Block(lastBlock, transactions, validatorPublicKey, timeStamp, difficulty, false);
+            block.consensusType = "ProofOfStake";
+            block.validatorAddress = validatorPublicKey;
+            block.selectionProof = lastBlock.Hash + timeStamp.ToString("O") + validatorPublicKey;
+            block.nonce = 0;
+            block.Hash = block.createHash();
+            return block;
         }
 
         public string createHash()
@@ -76,7 +93,7 @@ namespace BlockchainAssignment
 
         private byte[] HashBytesForNonce(SHA256 hasher, int nonceValue)
         {
-            string input = Index.ToString() + timeStamp.ToString() + previousHash + nonceValue + difficulty + reward + merikleRoot;
+            string input = Index.ToString() + timeStamp.ToString() + previousHash + nonceValue + difficulty + reward + merikleRoot + consensusType + validatorAddress + selectionProof;
             return hasher.ComputeHash(Encoding.UTF8.GetBytes(input));
         }
 
@@ -89,6 +106,8 @@ namespace BlockchainAssignment
                    "\n Transactions: " + string.Join("\n", transactionList.Select(t => t.ToString())) +
                    "\n Nonce: " + nonce % 1000 +
                    "\n Difficulty: " + difficulty +
+                   "\n Consensus: " + consensusType +
+                   "\n Validator: " + validatorAddress +
                    "\n Reward: " + reward +
                    "\n Merkle Root: " + merikleRoot;
         }

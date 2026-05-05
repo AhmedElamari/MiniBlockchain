@@ -23,6 +23,8 @@ namespace BlockchainAssignment
             _miningPolicyUiReady = false;
             comboBox1.Items.AddRange(Enum.GetNames(typeof(Blockchain.MiningPolicy)));
             comboBox1.SelectedIndex = 0;
+            comboBox2.Items.AddRange(new[] { "ProofOfWork", "ProofOfStake" });
+            comboBox2.SelectedIndex = 0;
             _miningPolicyUiReady = true;
         }
 
@@ -242,13 +244,40 @@ namespace BlockchainAssignment
             string minerAddress = textBox2.Text == null ? string.Empty : textBox2.Text.Trim();
             Blockchain.MiningPolicy miningPolicy = (Blockchain.MiningPolicy)comboBox1.SelectedIndex;
             List<Transaction> chosenTransactions = blockchain.getTransactionsForNextBlock(blockchain.getTransactionsPerBlock(), miningPolicy, minerAddress);
+
+            float difficulty = blockchain.getDifficultyForNextBlock();
+
+            if (comboBox2.SelectedItem != null && comboBox2.SelectedItem.ToString() == "ProofOfStake")
+            {
+                try
+                {
+                    Validator selectedValidator = blockchain.SelectValidator();
+                    if (selectedValidator == null)
+                    {
+                        MessageBox.Show("No validators registered.", "Proof of Stake");
+                        return;
+                    }
+
+                    Block candidate = Block.CreateProofOfStakeCandidate(lastBlock, chosenTransactions, selectedValidator.publicKey, DateTime.Now, difficulty);
+                    string failureMessage;
+                    if (!blockchain.addBlock(candidate, out failureMessage))
+                        MessageBox.Show(failureMessage, "Error");
+                    else
+                        SetRichText(blockchain.returnBlockchain(candidate.Index) + "\n", false);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "Proof of Stake");
+                }
+
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(minerAddress))
             {
                 MessageBox.Show("Please enter a Public ID (miner) for the reward transaction.", "Mining");
                 return;
             }
-
-            float difficulty = blockchain.getDifficultyForNextBlock();
 
             _backgroundWorkRunning = true;
             SetMiningButtonsEnabled(false);
@@ -430,6 +459,38 @@ namespace BlockchainAssignment
 
             List<Transaction> transactions = blockchain.getTransactionsForNextBlock(blockchain.getTransactionsPerBlock(), miningPolicy, minerAddress);
             richTextBox1.Text = string.Join("\n", transactions.Select(t => t.ToString()));
+        }
+
+        private void button7_Click(object sender, EventArgs e)
+        {
+            decimal stake;
+            if (!decimal.TryParse(textBox8.Text, out stake))
+            {
+                MessageBox.Show("Please enter a valid number for Stake.", "Proof of Stake");
+                return;
+            }
+
+            string errorMessage;
+            blockchain.addValidator(textBox7.Text, stake, out errorMessage);
+            if (!string.IsNullOrEmpty(errorMessage))
+            {
+                MessageBox.Show(errorMessage, "Proof of Stake");
+                return;
+            }
+
+            SetRichText("Validator added: " + textBox7.Text.Trim() + " with stake " + stake, false);
+        }
+
+        private void button8_Click(object sender, EventArgs e)
+        {
+            List<Validator> validators = blockchain.getValidators();
+            if (validators.Count == 0)
+            {
+                SetRichText("No validators registered.", false);
+                return;
+            }
+
+            SetRichText(string.Join("\n", validators.Select(v => "Validator: " + v.publicKey + ", Stake: " + v.stake)), false);
         }
     }
 }
