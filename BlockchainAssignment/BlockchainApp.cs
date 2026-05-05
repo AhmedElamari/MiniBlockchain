@@ -273,13 +273,13 @@ namespace BlockchainAssignment
                 return;
             }
 
-            List<Transaction> chosenTransactions = blockchain.getTransactionsForNextBlock(blockchain.getTransactionsPerBlock(), miningPolicy, minerAddress);
-
             if (string.IsNullOrWhiteSpace(minerAddress))
             {
                 MessageBox.Show("Please enter a Public ID (miner) for the reward transaction.", "Mining");
                 return;
             }
+
+            List<Transaction> chosenTransactions = blockchain.getTransactionsForNextBlock(blockchain.getTransactionsPerBlock(), miningPolicy, minerAddress);
 
             _backgroundWorkRunning = true;
             SetMiningButtonsEnabled(false);
@@ -492,7 +492,7 @@ namespace BlockchainAssignment
                 return;
             }
 
-            SetRichText(string.Join("\n", validators.Select(v => "Validator: " + v.publicKey + ", Stake: " + v.stake)), false);
+            SetRichText(string.Join("\n", validators.Select(v => "Validator: " + v.publicKey + ", Stake: " + v.stake + ", Blocks Forged: " + v.blocksForged)), false);
         }
     }
 }

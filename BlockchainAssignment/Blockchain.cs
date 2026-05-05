@@ -119,6 +119,13 @@ namespace BlockchainAssignment
 
             blocks.Add(block);
 
+            if (block.consensusType == "ProofOfStake")
+            {
+                Validator forger = validators.FirstOrDefault(v => v.publicKey == block.validatorAddress);
+                if (forger != null)
+                    forger.IncrementBlocksForged();
+            }
+
             foreach (Transaction transaction in block.transactionList.Where(t => t.sender != Transaction.miningRewardSenderID))
             {
                 transactionPool.Remove(transaction);
@@ -178,6 +185,13 @@ namespace BlockchainAssignment
                 if (string.IsNullOrWhiteSpace(block.validatorAddress) || !validators.Any(v => v.publicKey == block.validatorAddress && v.stake > 0))
                 {
                     failureMessage = "Block " + block.Index + " has an invalid proof-of-stake validator.";
+                    return false;
+                }
+
+                string expectedProof = previous.Hash + block.timeStamp.ToString("O") + block.validatorAddress;
+                if (block.selectionProof != expectedProof)
+                {
+                    failureMessage = "Block " + block.Index + " has an invalid proof-of-stake selection proof.";
                     return false;
                 }
             }
