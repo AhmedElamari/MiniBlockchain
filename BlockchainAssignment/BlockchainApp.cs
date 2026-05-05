@@ -249,20 +249,16 @@ namespace BlockchainAssignment
             {
                 try
                 {
-                    string pendingRegistry = blockchain.FormatPendingValidatorRegistryCanonical();
-                    string selectionProofHex;
-                    Validator selectedValidator;
-                    string computeError;
-                    if (!blockchain.TryComputeProofOfStakeProposer(lastBlock, pendingRegistry, out selectedValidator, out selectionProofHex, out computeError))
+                    Validator selectedValidator = blockchain.SelectValidator();
+                    if (selectedValidator == null)
                     {
-                        MessageBox.Show(computeError ?? "Unable to select a validator.", "Proof of Stake");
+                        MessageBox.Show("No validators registered.", "Proof of Stake");
                         return;
                     }
 
-                    string policyMinerAddress = selectedValidator.publicKey;
-                    List<Transaction> posTransactions = blockchain.getTransactionsForNextBlock(blockchain.getTransactionsPerBlock(), miningPolicy, policyMinerAddress);
+                    List<Transaction> posTransactions = blockchain.getTransactionsForNextBlock(blockchain.getTransactionsPerBlock(), miningPolicy, selectedValidator.publicKey);
 
-                    Block candidate = Block.CreateProofOfStakeCandidate(lastBlock, posTransactions, selectedValidator.publicKey, DateTime.Now, difficulty, pendingRegistry, selectionProofHex);
+                    Block candidate = Block.CreateProofOfStakeCandidate(lastBlock, posTransactions, selectedValidator.publicKey, DateTime.Now, difficulty);
                     string failureMessage;
                     if (!blockchain.addBlock(candidate, out failureMessage))
                         MessageBox.Show(failureMessage, "Error");
@@ -292,8 +288,7 @@ namespace BlockchainAssignment
             {
                 try
                 {
-                    string pendingRegistry = blockchain.FormatPendingValidatorRegistryCanonical();
-                    Block candidate = Block.CreateUnminedCandidate(lastBlock, chosenTransactions, minerAddress, DateTime.Now, difficulty, pendingRegistry);
+                    Block candidate = Block.CreateUnminedCandidate(lastBlock, chosenTransactions, minerAddress, DateTime.Now, difficulty);
                     Block.MiningMessageCallback cb = message =>
                         BeginInvoke(new Action(() => SetRichText(message + Environment.NewLine, true)));
                     candidate.Mine(Environment.ProcessorCount, cb);
