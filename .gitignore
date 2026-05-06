@@ -366,8 +366,5 @@ FodyWeavers.xsd
 AGENTS.md
 agents.md
 
-/tasks
-
-./BlockchainAssignment/BlockchainAssignment/bin/
-
-./
+# Repo-root tasks/ only (coursework + tracked agent notes live under BlockchainAssignment/tasks/)
+/tasks/
