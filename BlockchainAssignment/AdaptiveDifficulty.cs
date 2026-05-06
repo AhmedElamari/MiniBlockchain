@@ -94,10 +94,17 @@ namespace BlockchainAssignment
 
         private static double GetAverageIntervalSeconds(List<Block> blocks, int count)
         {
-            double emaSeconds = GetIntervalSeconds(blocks[1], blocks[0]);
+            double emaSeconds;
+            if (blocks.Count >= 2 && blocks[1].consensusType == "ProofOfStake")
+                emaSeconds = TargetBlockTimeSeconds;
+            else
+                emaSeconds = GetIntervalSeconds(blocks[1], blocks[0]);
 
             for (int i = 2; i < count; i++)
             {
+                if (blocks[i].consensusType == "ProofOfStake")
+                    continue;
+
                 double intervalSeconds = GetIntervalSeconds(blocks[i], blocks[i - 1]);
                 emaSeconds = (EmaAlpha * intervalSeconds) + ((1d - EmaAlpha) * emaSeconds);
             }

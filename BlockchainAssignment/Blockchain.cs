@@ -12,10 +12,68 @@ namespace BlockchainAssignment
         private int transactionsPerBlock = 5;
         public List<Transaction> transactionPool = new List<Transaction>();
 
+        private readonly List<Validator> validators = new List<Validator>();
+        private readonly Random random = new Random();
+
         public Blockchain()
         {
             Block genesisBlock = new Block();
             blocks.Add(genesisBlock);
+        }
+
+        public void addValidator(string publicKey, decimal stake, out string errorMessage)
+        {
+            errorMessage = null;
+            if (string.IsNullOrWhiteSpace(publicKey))
+            {
+                errorMessage = "Public key is required.";
+                return;
+            }
+
+            string key = publicKey.Trim();
+            if (validators.Any(v => v.publicKey == key))
+            {
+                errorMessage = "A validator with this public key is already registered.";
+                return;
+            }
+
+            if (stake <= 0)
+            {
+                errorMessage = "Stake must be greater than zero.";
+                return;
+            }
+
+            validators.Add(new Validator(key, stake));
+        }
+
+        public List<Validator> getValidators()
+        {
+            return validators.ToList();
+        }
+
+        public Validator SelectValidator()
+        {
+            if (validators.Count == 0)
+                return null;
+
+            decimal totalStake = validators.Sum(v => v.stake);
+            if (totalStake <= 0)
+            {
+                throw new InvalidOperationException("Total validator stake must be greater than zero.");
+            }
+
+            decimal roll = (decimal)random.NextDouble() * totalStake;
+            decimal runningTotal = 0;
+
+            foreach (Validator validator in validators)
+            {
+                runningTotal += validator.stake;
+                if (roll <= runningTotal)
+                {
+                    return validator;
+                }
+            }
+            return validators.Last();
         }
 
         public string returnBlockchain(int blockIndex)
@@ -61,6 +119,13 @@ namespace BlockchainAssignment
 
             blocks.Add(block);
 
+            if (block.consensusType == "ProofOfStake")
+            {
+                Validator forger = validators.FirstOrDefault(v => v.publicKey == block.validatorAddress);
+                if (forger != null)
+                    forger.IncrementBlocksForged();
+            }
+
             foreach (Transaction transaction in block.transactionList.Where(t => t.sender != Transaction.miningRewardSenderID))
             {
                 transactionPool.Remove(transaction);
@@ -94,7 +159,7 @@ namespace BlockchainAssignment
             return true;
         }
 
-        private static bool validateNonGenesisBlock(Block block, Block previous, float expectedDifficulty, out string failureMessage)
+        private bool validateNonGenesisBlock(Block block, Block previous, float expectedDifficulty, out string failureMessage)
         {
             failureMessage = null;
             if (block.previousHash != previous.Hash)
@@ -115,10 +180,35 @@ namespace BlockchainAssignment
                 return false;
             }
 
-            if (string.IsNullOrEmpty(block.Hash) || !AdaptiveDifficulty.HashMeetsDifficulty(block.Hash, block.difficulty))
+            if (block.consensusType == "ProofOfStake")
             {
-                failureMessage = "Block " + block.Index + " does not satisfy proof of work.";
-                return false;
+                if (string.IsNullOrWhiteSpace(block.validatorAddress) || !validators.Any(v => v.publicKey == block.validatorAddress && v.stake > 0))
+                {
+                    failureMessage = "Block " + block.Index + " has an invalid proof-of-stake validator.";
+                    return false;
+                }
+
+                string expectedProof = previous.Hash + block.timeStamp.ToString("O") + block.validatorAddress;
+                if (block.selectionProof != expectedProof)
+                {
+                    failureMessage = "Block " + block.Index + " has an invalid proof-of-stake selection proof.";
+                    return false;
+                }
+
+                Transaction rewardTx = block.transactionList.FirstOrDefault(t => t.sender == Transaction.miningRewardSenderID);
+                if (rewardTx == null || rewardTx.recipient != block.validatorAddress)
+                {
+                    failureMessage = "Block " + block.Index + " mining reward must pay the proof-of-stake validator.";
+                    return false;
+                }
+            }
+            else
+            {
+                if (string.IsNullOrEmpty(block.Hash) || !AdaptiveDifficulty.HashMeetsDifficulty(block.Hash, block.difficulty))
+                {
+                    failureMessage = "Block " + block.Index + " does not satisfy proof of work.";
+                    return false;
+                }
             }
 
             if (block.Hash != block.createHash())
@@ -183,7 +273,8 @@ namespace BlockchainAssignment
             return transactionsPerBlock;
         }
 
-        public enum MiningPolicy{
+        public enum MiningPolicy
+        {
             FirstComeFirstServe,
             HighestFeeFirst,
             LongestWait,
