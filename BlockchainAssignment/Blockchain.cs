@@ -194,6 +194,13 @@ namespace BlockchainAssignment
                     failureMessage = "Block " + block.Index + " has an invalid proof-of-stake selection proof.";
                     return false;
                 }
+
+                Transaction rewardTx = block.transactionList.FirstOrDefault(t => t.sender == Transaction.miningRewardSenderID);
+                if (rewardTx == null || rewardTx.recipient != block.validatorAddress)
+                {
+                    failureMessage = "Block " + block.Index + " mining reward must pay the proof-of-stake validator.";
+                    return false;
+                }
             }
             else
             {
