@@ -180,6 +180,12 @@ namespace BlockchainAssignment
                 return false;
             }
 
+            if (block.merikleRoot != Block.MerkleRoot(block.transactionList))
+            {
+                failureMessage = "Block " + block.Index + " has invalid Merkle root.";
+                return false;
+            }
+
             if (block.consensusType == "ProofOfStake")
             {
                 if (string.IsNullOrWhiteSpace(block.validatorAddress) || !validators.Any(v => v.publicKey == block.validatorAddress && v.stake > 0))
@@ -228,6 +234,40 @@ namespace BlockchainAssignment
         public void addPendingTransaction(Transaction transaction)
         {
             transactionPool.Add(transaction);
+        }
+
+        public bool tryAddPendingTransaction(Transaction transaction, out string failureMessage)
+        {
+            failureMessage = null;
+            if (transaction == null || !transaction.isValid())
+            {
+                failureMessage = "Invalid transaction (check keys, amount, fee, and signature).";
+                return false;
+            }
+
+            decimal required = transaction.amount + transaction.fee;
+            decimal available = getSpendableBalance(transaction.sender);
+            if (transaction.sender != Transaction.miningRewardSenderID && required > available)
+            {
+                failureMessage = "Insufficient funds. Available balance: " + available + ", required: " + required + ".";
+                return false;
+            }
+
+            transactionPool.Add(transaction);
+            return true;
+        }
+
+        private decimal getSpendableBalance(string walletAddress)
+        {
+            if (string.IsNullOrWhiteSpace(walletAddress))
+                return 0;
+
+            decimal confirmedBalance = getLastBlock().checkBalance(blocks, walletAddress);
+            decimal pendingOutgoing = transactionPool
+                .Where(t => t.sender == walletAddress && t.sender != Transaction.miningRewardSenderID)
+                .Sum(t => t.amount + t.fee);
+
+            return confirmedBalance - pendingOutgoing;
         }
 
         public List<Transaction> getTransactionsForNextBlock(int transactionsPerBlock)

@@ -368,3 +368,6 @@ agents.md
 
 # Repo-root tasks/ only (coursework + tracked agent notes live under BlockchainAssignment/tasks/)
 /tasks/
+
+# Local agent lessons (do not commit)
+BlockchainAssignment/tasks/lessons.md

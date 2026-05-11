@@ -216,7 +216,13 @@ namespace BlockchainAssignment
                 return;
             }
 
-            blockchain.addPendingTransaction(newTransaction);
+            string failureMessage;
+            if (!blockchain.tryAddPendingTransaction(newTransaction, out failureMessage))
+            {
+                MessageBox.Show(failureMessage, "Error");
+                return;
+            }
+
             SetRichText(newTransaction.ToString(), false);
         }
 
@@ -439,6 +445,40 @@ namespace BlockchainAssignment
             bool ok = blockchain.validateBlockchain(out message);
             MessageBox.Show(message, ok ? "Blockchain valid" : "Blockchain invalid");
             SetRichText(message, false);
+        }
+
+        private void buttonValidationEvidence_Click(object sender, EventArgs e)
+        {
+            Block lastBlock = blockchain.getLastBlock();
+            string minerAddress = string.IsNullOrWhiteSpace(textBox2.Text) ? Transaction.miningRewardSenderID : textBox2.Text.Trim();
+            List<Transaction> transactions = blockchain.getTransactionsForNextBlock(blockchain.getTransactionsPerBlock());
+            float difficulty = blockchain.getDifficultyForNextBlock();
+            int chainBefore = blockchain.getBlocks().Count;
+            int poolBefore = blockchain.getPendingTransactionsPool().Count;
+
+            var report = new StringBuilder();
+            report.AppendLine("Validation evidence checks (real chain is not modified):");
+
+            Block merkleCandidate = Block.CreateUnminedCandidate(lastBlock, transactions, minerAddress, DateTime.Now, difficulty);
+            merkleCandidate.Mine(Environment.ProcessorCount, null);
+            merkleCandidate.merikleRoot = "tampered";
+            string message;
+            bool accepted = blockchain.addBlock(merkleCandidate, out message);
+            report.AppendLine("Tampered Merkle root: " + (accepted ? "accepted" : "rejected") + " - " + message);
+
+            Block powCandidate = Block.CreateUnminedCandidate(lastBlock, transactions, minerAddress, DateTime.Now, difficulty);
+            powCandidate.Hash = new string('F', 64);
+            accepted = blockchain.addBlock(powCandidate, out message);
+            report.AppendLine("Invalid proof-of-work hash: " + (accepted ? "accepted" : "rejected") + " - " + message);
+
+            report.AppendLine("Chain blocks: " + chainBefore + " -> " + blockchain.getBlocks().Count);
+            report.AppendLine("Pending pool: " + poolBefore + " -> " + blockchain.getPendingTransactionsPool().Count);
+
+            string validationMessage;
+            blockchain.validateBlockchain(out validationMessage);
+            report.AppendLine("Current chain validation: " + validationMessage);
+
+            SetRichText(report.ToString(), false);
         }
 
         private void checkBalanceButton(object sender, EventArgs e)
