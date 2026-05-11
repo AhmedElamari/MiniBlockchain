@@ -451,13 +451,16 @@ namespace BlockchainAssignment
         {
             Block lastBlock = blockchain.getLastBlock();
             string minerAddress = string.IsNullOrWhiteSpace(textBox2.Text) ? Transaction.miningRewardSenderID : textBox2.Text.Trim();
-            List<Transaction> transactions = blockchain.getTransactionsForNextBlock(blockchain.getTransactionsPerBlock());
+            Blockchain.MiningPolicy miningPolicy = (Blockchain.MiningPolicy)comboBox1.SelectedIndex;
+            string preferentialMiner = textBox2.Text == null ? string.Empty : textBox2.Text.Trim();
+            List<Transaction> transactions = blockchain.getTransactionsForNextBlock(blockchain.getTransactionsPerBlock(), miningPolicy, preferentialMiner);
             float difficulty = blockchain.getDifficultyForNextBlock();
             int chainBefore = blockchain.getBlocks().Count;
             int poolBefore = blockchain.getPendingTransactionsPool().Count;
 
             var report = new StringBuilder();
-            report.AppendLine("Validation evidence checks (real chain is not modified):");
+            report.AppendLine("Validation evidence checks (tampered blocks are rejected; rejected PoS may slash validator stake):");
+            report.AppendLine();
 
             Block merkleCandidate = Block.CreateUnminedCandidate(lastBlock, transactions, minerAddress, DateTime.Now, difficulty);
             merkleCandidate.Mine(Environment.ProcessorCount, null);
@@ -471,6 +474,36 @@ namespace BlockchainAssignment
             accepted = blockchain.addBlock(powCandidate, out message);
             report.AppendLine("Invalid proof-of-work hash: " + (accepted ? "accepted" : "rejected") + " - " + message);
 
+            if (blockchain.getValidators().Count > 0)
+            {
+                Validator selected = blockchain.SelectValidator();
+                if (selected != null)
+                {
+                    List<Transaction> posTransactions = blockchain.getTransactionsForNextBlock(blockchain.getTransactionsPerBlock(), miningPolicy, selected.publicKey);
+                    Block posCandidate = Block.CreateProofOfStakeCandidate(lastBlock, posTransactions, selected.publicKey, DateTime.Now, difficulty);
+                    posCandidate.merikleRoot = "tampered";
+                    accepted = blockchain.addBlock(posCandidate, out message);
+                    report.AppendLine("Tampered proof-of-stake Merkle root: " + (accepted ? "accepted" : "rejected") + " - " + message);
+                }
+                else
+                {
+                    report.AppendLine("Tampered proof-of-stake Merkle root: skipped (could not select a validator).");
+                }
+            }
+            else
+            {
+                report.AppendLine("Tampered proof-of-stake Merkle root: skipped (no validators registered).");
+            }
+
+            report.AppendLine();
+            List<Validator> validatorsAfter = blockchain.getValidators();
+            if (validatorsAfter.Count > 0)
+                report.AppendLine("Validators now:\n"
+                    + string.Join("\n", validatorsAfter.Select(v => "Validator: " + v.publicKey + ", Stake: " + v.stake + ", Blocks Forged: " + v.blocksForged + ", Penalties: " + v.penalties)));
+            else
+                report.AppendLine("Validators now: none");
+
+            report.AppendLine();
             report.AppendLine("Chain blocks: " + chainBefore + " -> " + blockchain.getBlocks().Count);
             report.AppendLine("Pending pool: " + poolBefore + " -> " + blockchain.getPendingTransactionsPool().Count);
 
@@ -532,7 +565,7 @@ namespace BlockchainAssignment
                 return;
             }
 
-            SetRichText(string.Join("\n", validators.Select(v => "Validator: " + v.publicKey + ", Stake: " + v.stake + ", Blocks Forged: " + v.blocksForged)), false);
+            SetRichText(string.Join("\n", validators.Select(v => "Validator: " + v.publicKey + ", Stake: " + v.stake + ", Blocks Forged: " + v.blocksForged + ", Penalties: " + v.penalties)), false);
         }
     }
 }

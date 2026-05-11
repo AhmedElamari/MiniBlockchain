@@ -1,19 +1,23 @@
+using BlockchainAssignment.HashCode;
 using BlockchainAssignment.Wallet;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 
 namespace BlockchainAssignment
 {
     public class Blockchain
     {
         private const float DifficultyTolerance = 0.001f;
+        private const decimal SlashPercentagePerOffense = 0.10m;
+        private const int MaxPenaltiesBeforeRemoval = 3;
+        private const decimal StakeScaleDecimal = 1000000m;
         private readonly List<Block> blocks = new List<Block>();
         private int transactionsPerBlock = 5;
         public List<Transaction> transactionPool = new List<Transaction>();
 
         private readonly List<Validator> validators = new List<Validator>();
-        private readonly Random random = new Random();
 
         public Blockchain()
         {
@@ -43,6 +47,13 @@ namespace BlockchainAssignment
                 return;
             }
 
+            decimal balance = getLastBlock().checkBalance(blocks, key);
+            if (stake > balance)
+            {
+                errorMessage = "Stake exceeds on-chain balance (" + balance + "). Mine or receive coins for this wallet first.";
+                return;
+            }
+
             validators.Add(new Validator(key, stake));
         }
 
@@ -58,21 +69,29 @@ namespace BlockchainAssignment
 
             decimal totalStake = validators.Sum(v => v.stake);
             if (totalStake <= 0)
-            {
                 throw new InvalidOperationException("Total validator stake must be greater than zero.");
-            }
 
-            decimal roll = (decimal)random.NextDouble() * totalStake;
-            decimal runningTotal = 0;
+            Block previous = getLastBlock();
+            BigInteger hashInt = HexHashToUnsignedBigInteger(previous.Hash);
 
+            BigInteger totalScaled = BigInteger.Zero;
+            foreach (Validator v in validators)
+                totalScaled += StakeScaled(v.stake);
+
+            if (totalScaled.IsZero)
+                throw new InvalidOperationException("Total validator stake must be greater than zero.");
+
+            BigInteger roll = hashInt % totalScaled;
+
+            BigInteger runningScaled = BigInteger.Zero;
             foreach (Validator validator in validators)
             {
-                runningTotal += validator.stake;
-                if (roll <= runningTotal)
-                {
+                BigInteger w = StakeScaled(validator.stake);
+                runningScaled += w;
+                if (roll < runningScaled)
                     return validator;
-                }
             }
+
             return validators.Last();
         }
 
@@ -115,7 +134,10 @@ namespace BlockchainAssignment
             Block previous = getLastBlock();
             float expectedDifficulty = getDifficultyForNextBlock();
             if (!validateNonGenesisBlock(block, previous, expectedDifficulty, out failureMessage))
+            {
+                TrySlashProofOfStakeRejection(block, ref failureMessage);
                 return false;
+            }
 
             blocks.Add(block);
 
@@ -226,6 +248,65 @@ namespace BlockchainAssignment
             return true;
         }
 
+        private static BigInteger StakeScaled(decimal stake)
+        {
+            decimal scaled = decimal.Truncate(stake * StakeScaleDecimal);
+            if (scaled < 0m)
+                scaled = 0m;
+            return new BigInteger(scaled);
+        }
+
+        private static BigInteger HexHashToUnsignedBigInteger(string hexHash)
+        {
+            if (string.IsNullOrWhiteSpace(hexHash))
+                throw new ArgumentException("Hash cannot be empty.", "hexHash");
+
+            byte[] be = HashTools.StringToByteArray(hexHash.Trim());
+            if (be.Length == 0)
+                throw new ArgumentException("Hash cannot be decoded.", "hexHash");
+
+            byte[] le = new byte[be.Length + 1];
+            for (int i = 0; i < be.Length; i++)
+                le[i] = be[be.Length - 1 - i];
+
+            return new BigInteger(le);
+        }
+
+        private void TrySlashProofOfStakeRejection(Block block, ref string failureMessage)
+        {
+            if (block == null || block.consensusType != "ProofOfStake")
+                return;
+
+            string addr = block.validatorAddress == null ? string.Empty : block.validatorAddress.Trim();
+            if (string.IsNullOrWhiteSpace(addr))
+                return;
+
+            Validator offender = validators.FirstOrDefault(v => v.publicKey == addr);
+            if (offender == null)
+                return;
+
+            failureMessage = failureMessage ?? string.Empty;
+
+            offender.IncrementPenalties();
+            decimal slashAmount = offender.stake * SlashPercentagePerOffense;
+            offender.SlashStake(slashAmount);
+
+            int p = offender.penalties;
+            decimal stakeRemaining = offender.stake;
+            string pk = offender.publicKey;
+            bool removed = false;
+
+            if (p >= MaxPenaltiesBeforeRemoval || stakeRemaining <= 0m)
+            {
+                validators.Remove(offender);
+                removed = true;
+            }
+
+            failureMessage += " Slashing applied to validator " + pk + ": penalties=" + p
+                + ", stake after slash=" + stakeRemaining
+                + (removed ? ", removed from validator set." : ".");
+        }
+
         public List<Transaction> getPendingTransactionsPool()
         {
             return transactionPool.ToList();
@@ -267,7 +348,9 @@ namespace BlockchainAssignment
                 .Where(t => t.sender == walletAddress && t.sender != Transaction.miningRewardSenderID)
                 .Sum(t => t.amount + t.fee);
 
-            return confirmedBalance - pendingOutgoing;
+            decimal lockedStake = validators.Where(v => v.publicKey == walletAddress).Sum(v => v.stake);
+
+            return confirmedBalance - pendingOutgoing - lockedStake;
         }
 
         public List<Transaction> getTransactionsForNextBlock(int transactionsPerBlock)
