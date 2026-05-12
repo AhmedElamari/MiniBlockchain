@@ -11,7 +11,6 @@ namespace BlockchainAssignment
     {
         private const float DifficultyTolerance = 0.001f;
         private const decimal SlashPercentagePerOffense = 0.10m;
-        private const int MaxPenaltiesBeforeRemoval = 3;
         private const decimal StakeScaleDecimal = 1000000m;
         private readonly List<Block> blocks = new List<Block>();
         private int transactionsPerBlock = 5;
@@ -47,10 +46,15 @@ namespace BlockchainAssignment
                 return;
             }
 
-            decimal balance = getLastBlock().checkBalance(blocks, key);
-            if (stake > balance)
+            decimal confirmed = getLastBlock().checkBalance(blocks, key);
+            decimal pendingOutgoing = transactionPool
+                .Where(t => t.sender == key && t.sender != Transaction.miningRewardSenderID)
+                .Sum(t => t.amount + t.fee);
+            decimal available = confirmed - pendingOutgoing;
+
+            if (stake > available)
             {
-                errorMessage = "Stake exceeds on-chain balance (" + balance + "). Mine or receive coins for this wallet first.";
+                errorMessage = "Stake exceeds available balance (" + available + "). Mine or receive coins for this wallet first.";
                 return;
             }
 
@@ -210,7 +214,7 @@ namespace BlockchainAssignment
 
             if (block.consensusType == "ProofOfStake")
             {
-                if (string.IsNullOrWhiteSpace(block.validatorAddress) || !validators.Any(v => v.publicKey == block.validatorAddress && v.stake > 0))
+                if (string.IsNullOrWhiteSpace(block.validatorAddress) || !validators.Any(v => v.publicKey == block.validatorAddress))
                 {
                     failureMessage = "Block " + block.Index + " has an invalid proof-of-stake validator.";
                     return false;
@@ -253,7 +257,10 @@ namespace BlockchainAssignment
             decimal scaled = decimal.Truncate(stake * StakeScaleDecimal);
             if (scaled < 0m)
                 scaled = 0m;
-            return new BigInteger(scaled);
+            BigInteger result = new BigInteger(scaled);
+            if (stake > 0m && result.IsZero)
+                result = BigInteger.One;
+            return result;
         }
 
         private static BigInteger HexHashToUnsignedBigInteger(string hexHash)
@@ -287,6 +294,19 @@ namespace BlockchainAssignment
 
             failureMessage = failureMessage ?? string.Empty;
 
+            Validator expected = null;
+            try
+            {
+                expected = SelectValidator();
+            }
+            catch (InvalidOperationException)
+            {
+                return;
+            }
+
+            if (expected == null || expected.publicKey != addr)
+                return;
+
             offender.IncrementPenalties();
             decimal slashAmount = offender.stake * SlashPercentagePerOffense;
             offender.SlashStake(slashAmount);
@@ -294,17 +314,9 @@ namespace BlockchainAssignment
             int p = offender.penalties;
             decimal stakeRemaining = offender.stake;
             string pk = offender.publicKey;
-            bool removed = false;
-
-            if (p >= MaxPenaltiesBeforeRemoval || stakeRemaining <= 0m)
-            {
-                validators.Remove(offender);
-                removed = true;
-            }
 
             failureMessage += " Slashing applied to validator " + pk + ": penalties=" + p
-                + ", stake after slash=" + stakeRemaining
-                + (removed ? ", removed from validator set." : ".");
+                + ", stake after slash=" + stakeRemaining + ".";
         }
 
         public List<Transaction> getPendingTransactionsPool()
