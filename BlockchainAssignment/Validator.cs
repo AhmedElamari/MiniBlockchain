@@ -17,5 +17,18 @@ namespace BlockchainAssignment
         {
             blocksForged++;
         }
+
+        public void IncrementPenalties()
+        {
+            penalties++;
+        }
+
+        public void SlashStake(decimal amount)
+        {
+            if (amount <= 0)
+                return;
+
+            stake = stake > amount ? stake - amount : 0m;
+        }
     }
 }

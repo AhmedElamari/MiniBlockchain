@@ -41,6 +41,7 @@ namespace BlockchainAssignment
             this.button5 = new System.Windows.Forms.Button();
             this.button6 = new System.Windows.Forms.Button();
             this.buttonValidateBlockchain = new System.Windows.Forms.Button();
+            this.buttonValidationEvidence = new System.Windows.Forms.Button();
             this.buttonBenchmarkMining = new System.Windows.Forms.Button();
             this.comboBox1 = new System.Windows.Forms.ComboBox();
             this.POS = new System.Windows.Forms.GroupBox();
@@ -274,6 +275,16 @@ namespace BlockchainAssignment
             this.buttonValidateBlockchain.UseVisualStyleBackColor = true;
             this.buttonValidateBlockchain.Click += new System.EventHandler(this.validateBlockchain_Click);
             // 
+            // buttonValidationEvidence
+            // 
+            this.buttonValidationEvidence.Location = new System.Drawing.Point(404, 449);
+            this.buttonValidationEvidence.Name = "buttonValidationEvidence";
+            this.buttonValidationEvidence.Size = new System.Drawing.Size(90, 27);
+            this.buttonValidationEvidence.TabIndex = 25;
+            this.buttonValidationEvidence.Text = "Validation Evidence";
+            this.buttonValidationEvidence.UseVisualStyleBackColor = true;
+            this.buttonValidationEvidence.Click += new System.EventHandler(this.buttonValidationEvidence_Click);
+            // 
             // buttonBenchmarkMining
             // 
             this.buttonBenchmarkMining.Location = new System.Drawing.Point(404, 381);
@@ -391,6 +402,7 @@ namespace BlockchainAssignment
             this.ClientSize = new System.Drawing.Size(681, 506);
             this.Controls.Add(this.POS);
             this.Controls.Add(this.comboBox1);
+            this.Controls.Add(this.buttonValidationEvidence);
             this.Controls.Add(this.button6);
             this.Controls.Add(this.button5);
             this.Controls.Add(this.button4);
@@ -442,6 +454,7 @@ namespace BlockchainAssignment
         private System.Windows.Forms.Button button5;
         private System.Windows.Forms.Button button6;
         private System.Windows.Forms.Button buttonValidateBlockchain;
+        private System.Windows.Forms.Button buttonValidationEvidence;
         private System.Windows.Forms.Button buttonBenchmarkMining;
         private System.Windows.Forms.ComboBox comboBox1;
         private System.Windows.Forms.GroupBox POS;
